@@ -324,8 +324,8 @@ pub fn menu_will_open() {
 }
 
 /// `tamka://toggle` (same as the shortcut), `tamka://cancel`, `tamka://retry`,
-/// `tamka://settings[-models|-text]`, and `tamka://hud-demo`, which cycles the
-/// indicator's states for a few seconds.
+/// `tamka://settings[-models|-text]`, `tamka://reset-indicator`, and `tamka://hud-demo`,
+/// which cycles the indicator's states for a few seconds.
 pub fn open_url(host: &str) {
     match host {
         "toggle" => toggle(),
@@ -334,15 +334,17 @@ pub fn open_url(host: &str) {
         "settings" => settings_window::show(Some(settings_window::TAB_GENERAL)),
         "settings-models" => settings_window::show(Some(settings_window::TAB_MODELS)),
         "settings-text" => settings_window::show(Some(settings_window::TAB_TEXT)),
-        // Opens the menu for ~4 s with two clearly fake transcripts, for screenshots.
+        // Opens the menu for ~4 s with three example transcripts (when there's no real
+        // history yet), for screenshots.
         "menu-demo" => {
             let demo = HISTORY.with(|h| h.borrow().is_empty());
             if demo {
                 let now = SystemTime::now();
                 HISTORY.with(|h| {
                     *h.borrow_mut() = vec![
-                        ("(Demo) Ask Sam to check the Zapier webhook, then open the support ticket.".into(), now),
-                        ("(Demo) Dear Sam, thanks for the update on the invoice.".into(), now - std::time::Duration::from_secs(240)),
+                        ("Can you refactor the settings window so every change saves the moment it's made?".into(), now),
+                        ("Hi Sam, thanks for the update. The invoice is attached; let me know if anything's missing.".into(), now - std::time::Duration::from_secs(240)),
+                        ("Remind me to book the flights to Nairobi on Friday.".into(), now - std::time::Duration::from_secs(720)),
                     ]
                 });
             }
@@ -360,9 +362,10 @@ pub fn open_url(host: &str) {
                 HISTORY.with(|h| h.borrow_mut().clear());
             }
         }
+        "reset-indicator" => hud::reset_position(),
         "hud-demo" if PHASE.with(Cell::get) == Phase::Idle => {
             hud::show_recording(&settings::get().shortcut.label());
-            hud::update_recording(std::time::Duration::from_secs(607), 0.8);
+            hud::update_recording(std::time::Duration::from_secs(12), 0.8);
             util::main_after(2.5, hud::show_transcribing);
             util::main_after(5.0, || {
                 hud::notice("Copied · press ⌘V to paste", Some("Allow Tamka in Privacy & Security › Accessibility to paste automatically."))

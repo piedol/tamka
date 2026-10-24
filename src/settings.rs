@@ -39,6 +39,9 @@ pub struct Settings {
     pub collapse_repeats: bool,
     /// Recording stops on its own after this many seconds.
     pub max_seconds: u32,
+    /// Where the listening indicator was last dragged to: [centre x, bottom y] in
+    /// screen coordinates. None = bottom centre of the screen with the pointer.
+    pub indicator_anchor: Option<[f64; 2]>,
     /// Spoken phrase → text, applied after cleanup. Longest phrase wins.
     pub find_replace: Vec<Rule>,
 }
@@ -55,6 +58,7 @@ impl Default for Settings {
             remove_fillers: true,
             collapse_repeats: true,
             max_seconds: 600,
+            indicator_anchor: None,
             find_replace: builtin_rules(),
         }
     }

@@ -1,12 +1,13 @@
-//! On-screen feedback: the recording pill (bottom centre of the screen with the
-//! pointer) and short toasts. All windows are non-activating, so the app you're
-//! typing in keeps focus and receives the paste.
+//! On-screen feedback: the recording pill and short toasts. The pill starts at the
+//! bottom centre of the screen with the pointer; drag it anywhere and it (and the
+//! toasts that replace it) stays there for the next dictation. All windows are
+//! non-activating, so the app you're typing in keeps focus and receives the paste.
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::time::Duration;
 
 use objc2::rc::Retained;
-use objc2::{MainThreadMarker, MainThreadOnly};
+use objc2::{define_class, msg_send, MainThreadMarker, MainThreadOnly};
 use objc2_app_kit::{
     NSAnimatablePropertyContainer, NSAnimationContext, NSAppearance, NSAppearanceCustomization,
     NSAppearanceNameDarkAqua, NSBackingStoreType, NSColor,
@@ -42,6 +43,102 @@ thread_local! {
 
 fn mtm() -> MainThreadMarker {
     MainThreadMarker::new().expect("HUD work must run on the main thread")
+}
+
+thread_local! {
+    /// While dragging the pill: (pointer at mouse-down, panel origin at mouse-down).
+    static DRAG: Cell<Option<(NSPoint, NSPoint)>> = const { Cell::new(None) };
+}
+
+define_class!(
+    // SAFETY: NSView subclass that only handles mouse events; no ivars, no Drop.
+    // It sits on top of the pill and turns any press into a window drag, without
+    // activating Tamka (the panel is non-activating), so focus stays in your app.
+    #[unsafe(super(NSView, objc2_app_kit::NSResponder, objc2_foundation::NSObject))]
+    #[thread_kind = MainThreadOnly]
+    #[name = "TamkaDragView"]
+    struct DragView;
+
+    impl DragView {
+        #[unsafe(method(acceptsFirstMouse:))]
+        fn accepts_first_mouse(&self, _event: Option<&NSEvent>) -> bool {
+            true
+        }
+
+        #[unsafe(method(mouseDown:))]
+        fn mouse_down(&self, _event: &NSEvent) {
+            if let Some(w) = self.window() {
+                DRAG.with(|d| d.set(Some((NSEvent::mouseLocation(), w.frame().origin))));
+                objc2_app_kit::NSCursor::closedHandCursor().push();
+            }
+        }
+
+        #[unsafe(method(mouseDragged:))]
+        fn mouse_dragged(&self, _event: &NSEvent) {
+            let (Some((start, origin)), Some(w)) = (DRAG.with(Cell::get), self.window()) else { return };
+            let now = NSEvent::mouseLocation();
+            w.setFrameOrigin(NSPoint::new(origin.x + now.x - start.x, origin.y + now.y - start.y));
+        }
+
+        #[unsafe(method(mouseUp:))]
+        fn mouse_up(&self, _event: &NSEvent) {
+            objc2_app_kit::NSCursor::closedHandCursor().pop();
+            let Some((start, _)) = DRAG.with(|d| d.take()) else { return };
+            let now = NSEvent::mouseLocation();
+            if (now.x - start.x).abs() < 1.0 && (now.y - start.y).abs() < 1.0 {
+                return; // a click, not a drag
+            }
+            if let Some(w) = self.window() {
+                let f = w.frame();
+                let anchor = [f.origin.x + f.size.width / 2.0, f.origin.y];
+                crate::settings::update(|s| s.indicator_anchor = Some(anchor));
+                util::log("indicator moved");
+            }
+        }
+    }
+);
+
+/// A transparent layer over the whole pill that makes it draggable.
+fn drag_layer(mtm: MainThreadMarker, size: NSSize) -> Retained<DragView> {
+    let this = DragView::alloc(mtm).set_ivars(());
+    let v: Retained<DragView> = unsafe { msg_send![super(this), initWithFrame: NSRect::new(NSPoint::new(0.0, 0.0), size)] };
+    v.setToolTip(Some(&ns("Drag to move. It stays here for your next dictation.")));
+    v
+}
+
+/// Where a pill or toast of this size goes: the spot it was last dragged to, if
+/// that's still on a connected screen, otherwise bottom centre of the pointer's screen.
+fn origin_for(mtm: MainThreadMarker, w: f64, h: f64) -> NSPoint {
+    if let Some([cx, bottom]) = crate::settings::get().indicator_anchor {
+        for s in NSScreen::screens(mtm).iter() {
+            let f = s.frame();
+            let inside = cx >= f.origin.x && cx < f.origin.x + f.size.width && bottom >= f.origin.y
+                && bottom < f.origin.y + f.size.height;
+            if inside {
+                // Keep it fully on that screen even if this one is wider than the last.
+                let v = s.visibleFrame();
+                let x = (cx - w / 2.0).clamp(v.origin.x + 4.0, v.origin.x + v.size.width - w - 4.0);
+                let y = bottom.clamp(v.origin.y + 4.0, v.origin.y + v.size.height - h - 4.0);
+                return NSPoint::new(x, y);
+            }
+        }
+    }
+    let screen = pointer_screen(mtm);
+    NSPoint::new(screen.origin.x + (screen.size.width - w) / 2.0, screen.origin.y + 72.0)
+}
+
+/// Forget the dragged position (Settings › General › Reset Position).
+pub fn reset_position() {
+    crate::settings::update(|s| s.indicator_anchor = None);
+    let mtm = mtm();
+    PILL.with(|cell| {
+        if let Some(p) = cell.borrow().as_ref()
+            && p.panel.isVisible()
+        {
+            let f = p.panel.frame();
+            p.panel.setFrameOrigin(origin_for(mtm, f.size.width, f.size.height));
+        }
+    });
 }
 
 fn panel(mtm: MainThreadMarker, frame: NSRect) -> Retained<NSPanel> {
@@ -109,6 +206,9 @@ fn place(view: &NSView, x: f64, y: f64, w: f64, h: f64) {
 
 fn build_pill(mtm: MainThreadMarker) -> Pill {
     let p = panel(mtm, NSRect::new(NSPoint::new(0.0, 0.0), NSSize::new(300.0, PILL_H)));
+    // Unlike toasts, the pill takes the mouse so it can be dragged out of the way.
+    p.setIgnoresMouseEvents(false);
+    p.setBecomesKeyOnlyIfNeeded(true);
     let dot = NSImageView::new(mtm);
     if let Some(img) = crate::ui::symbol("circle.fill", 10.0) {
         dot.setImage(Some(&img));
@@ -172,9 +272,10 @@ fn show_pill(recording: bool, title: &str, hint: &str) {
             place(&pill.hint, x, mid - 8.0, hint_w + 2.0, 16.0);
             s.addSubview(&pill.hint);
         }
+        // Topmost: the whole pill is a drag handle.
+        s.addSubview(&drag_layer(mtm, size));
         pill.panel.setContentView(Some(&s));
-        let screen = pointer_screen(mtm);
-        let origin = NSPoint::new(screen.origin.x + (screen.size.width - w) / 2.0, screen.origin.y + 72.0);
+        let origin = origin_for(mtm, w, PILL_H);
         pill.panel.setFrame_display(NSRect::new(origin, size), true);
         pill.panel.setAlphaValue(1.0);
         pill.panel.orderFrontRegardless();
@@ -275,8 +376,7 @@ fn show_toast(title: &str, detail: Option<&str>, warning: bool) {
         None => place(&t, text_x, h / 2.0 - 9.0, w - text_x - 16.0, 18.0),
     }
     s.addSubview(&t);
-    let screen = pointer_screen(mtm);
-    let origin = NSPoint::new(screen.origin.x + (screen.size.width - w) / 2.0, screen.origin.y + 72.0);
+    let origin = origin_for(mtm, w, h);
     let p = panel(mtm, NSRect::new(origin, size));
     p.setContentView(Some(&s));
     p.orderFrontRegardless();

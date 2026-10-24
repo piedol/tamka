@@ -40,6 +40,7 @@ const LOGIN: isize = 5;
 const MIC_FIX: isize = 6;
 const AX_FIX: isize = 7;
 const OPEN_LOG: isize = 8;
+const RESET_INDICATOR: isize = 9;
 const FILLERS: isize = 21;
 const REPEATS: isize = 22;
 const DIGITS: isize = 23;
@@ -68,7 +69,7 @@ const LIMITS: &[(u32, &str)] = &[
 const LABEL_W: f64 = 150.0;
 const X: f64 = 24.0;
 const WIN_W: f64 = 600.0;
-const WIN_H: f64 = 640.0;
+const WIN_H: f64 = 700.0;
 
 define_class!(
     // SAFETY: NSView subclass that only flips its coordinate system.
@@ -456,6 +457,11 @@ pub fn show(tab: Option<isize>) {
     g.row("Stop after:", &limit, Some(140.0), 25.0);
     controls.insert(LIMIT, as_view(&limit));
     g.note("Listening stops and the text is typed when a dictation reaches this length.");
+    let reset = push_button("Reset Position", RESET_INDICATOR, &controller);
+    reset.setToolTip(Some(&ns("Put the listening indicator back at the bottom centre of the screen")));
+    g.row("Indicator:", &reset, Some(140.0), 26.0);
+    controls.insert(RESET_INDICATOR, as_view(&reset));
+    g.note("Drag the listening indicator anywhere; it stays there for your next dictation.");
     g.section("After dictating");
     for (title, tag, on) in [
         ("Paste into the app you're typing in", AUTO_PASTE, s.auto_paste),
@@ -614,8 +620,13 @@ pub fn show(tab: Option<isize>) {
     window.setDelegate(Some(ProtocolObject::from_ref(&*controller)));
     tabs.setDelegate(Some(ProtocolObject::from_ref(&*controller)));
     window.center();
-    // Reopen where it was last left (restores the saved frame when there is one).
+    // Reopen where it was last left (restores the saved frame when there is one),
+    // but always at today's size: an older, smaller saved frame must not win.
     window.setFrameAutosaveName(&ns("TamkaSettings"));
+    let top = window.frame().origin.y + window.frame().size.height;
+    window.setContentSize(NSSize::new(WIN_W, WIN_H));
+    let f = window.frame();
+    window.setFrameOrigin(NSPoint::new(f.origin.x, top - f.size.height));
     let timer = unsafe {
         NSTimer::scheduledTimerWithTimeInterval_target_selector_userInfo_repeats(1.0, &controller, sel!(tick:), None, true)
     };
@@ -723,6 +734,9 @@ fn refresh() {
             c.setState(if s.keep_on_clipboard { NSControlStateValueOn } else { NSControlStateValueOff });
         }
     }
+    if let Some(c) = control::<NSButton>(RESET_INDICATOR) {
+        c.setEnabled(s.indicator_anchor.is_some());
+    }
     if let Some(c) = control::<NSButton>(LOGIN) {
         c.setState(if app::login_item_enabled() { NSControlStateValueOn } else { NSControlStateValueOff });
     }
@@ -757,6 +771,7 @@ fn changed(id: isize) {
             permissions::ask_accessibility();
             permissions::open_settings("Privacy_Accessibility");
         }
+        RESET_INDICATOR => crate::hud::reset_position(),
         OPEN_LOG => {
             let path = util::home().join("Library/Logs/Tamka.log");
             NSWorkspace::sharedWorkspace().openURL(&NSURL::fileURLWithPath(&ns(&path.to_string_lossy())));
