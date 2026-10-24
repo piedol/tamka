@@ -1,0 +1,452 @@
+{
+ "commands": [
+  {
+   "spoken": "open parenthesis",
+   "replacement": "("
+  },
+  {
+   "spoken": "close parenthesis",
+   "replacement": ")"
+  },
+  {
+   "spoken": "open paren",
+   "replacement": "("
+  },
+  {
+   "spoken": "close paren",
+   "replacement": ")"
+  },
+  {
+   "spoken": "left parenthesis",
+   "replacement": "("
+  },
+  {
+   "spoken": "right parenthesis",
+   "replacement": ")"
+  },
+  {
+   "spoken": "left paren",
+   "replacement": "("
+  },
+  {
+   "spoken": "right paren",
+   "replacement": ")"
+  },
+  {
+   "spoken": "open bracket",
+   "replacement": "["
+  },
+  {
+   "spoken": "close bracket",
+   "replacement": "]"
+  },
+  {
+   "spoken": "left bracket",
+   "replacement": "["
+  },
+  {
+   "spoken": "right bracket",
+   "replacement": "]"
+  },
+  {
+   "spoken": "open square bracket",
+   "replacement": "["
+  },
+  {
+   "spoken": "close square bracket",
+   "replacement": "]"
+  },
+  {
+   "spoken": "open brace",
+   "replacement": "{"
+  },
+  {
+   "spoken": "close brace",
+   "replacement": "}"
+  },
+  {
+   "spoken": "left brace",
+   "replacement": "{"
+  },
+  {
+   "spoken": "right brace",
+   "replacement": "}"
+  },
+  {
+   "spoken": "open curly bracket",
+   "replacement": "{"
+  },
+  {
+   "spoken": "close curly bracket",
+   "replacement": "}"
+  },
+  {
+   "spoken": "open curly brace",
+   "replacement": "{"
+  },
+  {
+   "spoken": "close curly brace",
+   "replacement": "}"
+  },
+  {
+   "spoken": "open angle bracket",
+   "replacement": "<"
+  },
+  {
+   "spoken": "close angle bracket",
+   "replacement": ">"
+  },
+  {
+   "spoken": "left angle bracket",
+   "replacement": "<"
+  },
+  {
+   "spoken": "right angle bracket",
+   "replacement": ">"
+  },
+  {
+   "spoken": "less than sign",
+   "replacement": "<"
+  },
+  {
+   "spoken": "greater than sign",
+   "replacement": ">"
+  },
+  {
+   "spoken": "open quote",
+   "replacement": "\""
+  },
+  {
+   "spoken": "close quote",
+   "replacement": "\""
+  },
+  {
+   "spoken": "end quote",
+   "replacement": "\""
+  },
+  {
+   "spoken": "begin quote",
+   "replacement": "\""
+  },
+  {
+   "spoken": "double quote",
+   "replacement": "\""
+  },
+  {
+   "spoken": "open single quote",
+   "replacement": "'"
+  },
+  {
+   "spoken": "close single quote",
+   "replacement": "'"
+  },
+  {
+   "spoken": "end single quote",
+   "replacement": "'"
+  },
+  {
+   "spoken": "single quote",
+   "replacement": "'"
+  },
+  {
+   "spoken": "back quote",
+   "replacement": "`"
+  },
+  {
+   "spoken": "full stop",
+   "replacement": "."
+  },
+  {
+   "spoken": "question mark",
+   "replacement": "?"
+  },
+  {
+   "spoken": "exclamation mark",
+   "replacement": "!"
+  },
+  {
+   "spoken": "exclamation point",
+   "replacement": "!"
+  },
+  {
+   "spoken": "minus sign",
+   "replacement": "-"
+  },
+  {
+   "spoken": "en dash",
+   "replacement": "–"
+  },
+  {
+   "spoken": "em dash",
+   "replacement": "—"
+  },
+  {
+   "spoken": "dot dot dot",
+   "replacement": "..."
+  },
+  {
+   "spoken": "forward slash",
+   "replacement": "/"
+  },
+  {
+   "spoken": "at sign",
+   "replacement": "@"
+  },
+  {
+   "spoken": "at symbol",
+   "replacement": "@"
+  },
+  {
+   "spoken": "ampersand",
+   "replacement": "&"
+  },
+  {
+   "spoken": "and sign",
+   "replacement": "&"
+  },
+  {
+   "spoken": "vertical bar",
+   "replacement": "|"
+  },
+  {
+   "spoken": "pipe symbol",
+   "replacement": "|"
+  },
+  {
+   "spoken": "pipe character",
+   "replacement": "|"
+  },
+  {
+   "spoken": "caret symbol",
+   "replacement": "^"
+  },
+  {
+   "spoken": "tilde symbol",
+   "replacement": "~"
+  },
+  {
+   "spoken": "hash sign",
+   "replacement": "#"
+  },
+  {
+   "spoken": "hash symbol",
+   "replacement": "#"
+  },
+  {
+   "spoken": "pound sign",
+   "replacement": "#"
+  },
+  {
+   "spoken": "number sign",
+   "replacement": "#"
+  },
+  {
+   "spoken": "dollar sign",
+   "replacement": "$"
+  },
+  {
+   "spoken": "cent sign",
+   "replacement": "¢"
+  },
+  {
+   "spoken": "euro sign",
+   "replacement": "€"
+  },
+  {
+   "spoken": "pound sterling sign",
+   "replacement": "£"
+  },
+  {
+   "spoken": "yen sign",
+   "replacement": "¥"
+  },
+  {
+   "spoken": "percent sign",
+   "replacement": "%"
+  },
+  {
+   "spoken": "plus sign",
+   "replacement": "+"
+  },
+  {
+   "spoken": "equal sign",
+   "replacement": "="
+  },
+  {
+   "spoken": "equals sign",
+   "replacement": "="
+  },
+  {
+   "spoken": "multiplication sign",
+   "replacement": "×"
+  },
+  {
+   "spoken": "times sign",
+   "replacement": "×"
+  },
+  {
+   "spoken": "division sign",
+   "replacement": "÷"
+  },
+  {
+   "spoken": "plus or minus sign",
+   "replacement": "±"
+  },
+  {
+   "spoken": "degree sign",
+   "replacement": "°"
+  },
+  {
+   "spoken": "copyright sign",
+   "replacement": "©"
+  },
+  {
+   "spoken": "registered sign",
+   "replacement": "®"
+  },
+  {
+   "spoken": "trademark sign",
+   "replacement": "™"
+  },
+  {
+   "spoken": "section sign",
+   "replacement": "§"
+  },
+  {
+   "spoken": "paragraph sign",
+   "replacement": "¶"
+  },
+  {
+   "spoken": "new line.",
+   "replacement": "\n"
+  },
+  {
+   "spoken": "new line,",
+   "replacement": "\n"
+  },
+  {
+   "spoken": "new line",
+   "replacement": "\n"
+  },
+  {
+   "spoken": "next line.",
+   "replacement": "\n"
+  },
+  {
+   "spoken": "next line,",
+   "replacement": "\n"
+  },
+  {
+   "spoken": "next line",
+   "replacement": "\n"
+  },
+  {
+   "spoken": "new paragraph.",
+   "replacement": "\n\n"
+  },
+  {
+   "spoken": "new paragraph,",
+   "replacement": "\n\n"
+  },
+  {
+   "spoken": "new paragraph",
+   "replacement": "\n\n"
+  },
+  {
+   "spoken": "next paragraph.",
+   "replacement": "\n\n"
+  },
+  {
+   "spoken": "next paragraph,",
+   "replacement": "\n\n"
+  },
+  {
+   "spoken": "next paragraph",
+   "replacement": "\n\n"
+  },
+  {
+   "spoken": "new para.",
+   "replacement": "\n\n"
+  },
+  {
+   "spoken": "new para,",
+   "replacement": "\n\n"
+  },
+  {
+   "spoken": "new para",
+   "replacement": "\n\n"
+  },
+  {
+   "spoken": "next para.",
+   "replacement": "\n\n"
+  },
+  {
+   "spoken": "next para,",
+   "replacement": "\n\n"
+  },
+  {
+   "spoken": "next para",
+   "replacement": "\n\n"
+  },
+  {
+   "spoken": "smiley face.",
+   "replacement": " :)"
+  },
+  {
+   "spoken": "smiley face",
+   "replacement": ":)"
+  },
+  {
+   "spoken": "frowny face.",
+   "replacement": " :("
+  },
+  {
+   "spoken": "frowny face",
+   "replacement": ":("
+  },
+  {
+   "spoken": "sad face.",
+   "replacement": " :("
+  },
+  {
+   "spoken": "sad face",
+   "replacement": ":("
+  },
+  {
+   "spoken": "winky face.",
+   "replacement": " ;)"
+  },
+  {
+   "spoken": "winky face",
+   "replacement": ";)"
+  },
+  {
+   "spoken": "winky smiley.",
+   "replacement": " ;)"
+  },
+  {
+   "spoken": "winky smiley",
+   "replacement": ";)"
+  },
+  {
+   "spoken": "open parentheses",
+   "replacement": "("
+  },
+  {
+   "spoken": "close parentheses",
+   "replacement": ")"
+  },
+  {
+   "spoken": "left parentheses",
+   "replacement": "("
+  },
+  {
+   "spoken": "right parentheses",
+   "replacement": ")"
+  },
+  {
+   "spoken": "comma",
+   "replacement": ","
+  }
+ ]
+}

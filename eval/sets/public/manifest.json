@@ -1,0 +1,1176 @@
+[
+ {
+  "clip": "ls-clean__3575-170457-0031",
+  "group": "ls-clean",
+  "seconds": 4.0,
+  "source": "LibriSpeech test-clean",
+  "ids": [
+   "3575-170457-0031"
+  ]
+ },
+ {
+  "clip": "ls-clean__1320-122612-0009",
+  "group": "ls-clean",
+  "seconds": 3.88,
+  "source": "LibriSpeech test-clean",
+  "ids": [
+   "1320-122612-0009"
+  ]
+ },
+ {
+  "clip": "ls-clean__4446-2273-0019",
+  "group": "ls-clean",
+  "seconds": 3.12,
+  "source": "LibriSpeech test-clean",
+  "ids": [
+   "4446-2273-0019"
+  ]
+ },
+ {
+  "clip": "ls-clean__4507-16021-0054",
+  "group": "ls-clean",
+  "seconds": 4.32,
+  "source": "LibriSpeech test-clean",
+  "ids": [
+   "4507-16021-0054"
+  ]
+ },
+ {
+  "clip": "ls-clean__61-70968-0001",
+  "group": "ls-clean",
+  "seconds": 3.61,
+  "source": "LibriSpeech test-clean",
+  "ids": [
+   "61-70968-0001"
+  ]
+ },
+ {
+  "clip": "ls-clean__1580-141084-0022",
+  "group": "ls-clean",
+  "seconds": 2.06,
+  "source": "LibriSpeech test-clean",
+  "ids": [
+   "1580-141084-0022"
+  ]
+ },
+ {
+  "clip": "ls-clean__672-122797-0013",
+  "group": "ls-clean",
+  "seconds": 8.71,
+  "source": "LibriSpeech test-clean",
+  "ids": [
+   "672-122797-0013"
+  ]
+ },
+ {
+  "clip": "ls-clean__8455-210777-0055",
+  "group": "ls-clean",
+  "seconds": 9.55,
+  "source": "LibriSpeech test-clean",
+  "ids": [
+   "8455-210777-0055"
+  ]
+ },
+ {
+  "clip": "ls-clean__1284-1180-0018",
+  "group": "ls-clean",
+  "seconds": 12.01,
+  "source": "LibriSpeech test-clean",
+  "ids": [
+   "1284-1180-0018"
+  ]
+ },
+ {
+  "clip": "ls-clean__908-157963-0012",
+  "group": "ls-clean",
+  "seconds": 10.09,
+  "source": "LibriSpeech test-clean",
+  "ids": [
+   "908-157963-0012"
+  ]
+ },
+ {
+  "clip": "ls-clean__2300-131720-0018",
+  "group": "ls-clean",
+  "seconds": 12.54,
+  "source": "LibriSpeech test-clean",
+  "ids": [
+   "2300-131720-0018"
+  ]
+ },
+ {
+  "clip": "ls-clean__4077-13754-0009",
+  "group": "ls-clean",
+  "seconds": 7.65,
+  "source": "LibriSpeech test-clean",
+  "ids": [
+   "4077-13754-0009"
+  ]
+ },
+ {
+  "clip": "ls-clean__8224-274381-0008",
+  "group": "ls-clean",
+  "seconds": 20.98,
+  "source": "LibriSpeech test-clean",
+  "ids": [
+   "8224-274381-0008"
+  ]
+ },
+ {
+  "clip": "ls-clean__2961-960-0008",
+  "group": "ls-clean",
+  "seconds": 15.46,
+  "source": "LibriSpeech test-clean",
+  "ids": [
+   "2961-960-0008"
+  ]
+ },
+ {
+  "clip": "ls-clean__8224-274381-0016",
+  "group": "ls-clean",
+  "seconds": 27.52,
+  "source": "LibriSpeech test-clean",
+  "ids": [
+   "8224-274381-0016"
+  ]
+ },
+ {
+  "clip": "ls-clean__8224-274381-0000",
+  "group": "ls-clean",
+  "seconds": 17.74,
+  "source": "LibriSpeech test-clean",
+  "ids": [
+   "8224-274381-0000"
+  ]
+ },
+ {
+  "clip": "ls-clean__4507-16021-0039",
+  "group": "ls-clean",
+  "seconds": 15.42,
+  "source": "LibriSpeech test-clean",
+  "ids": [
+   "4507-16021-0039"
+  ]
+ },
+ {
+  "clip": "ls-clean__7021-79759-0004",
+  "group": "ls-clean",
+  "seconds": 24.47,
+  "source": "LibriSpeech test-clean",
+  "ids": [
+   "7021-79759-0004"
+  ]
+ },
+ {
+  "clip": "ls-clean-long__126133-0000",
+  "group": "ls-clean-long",
+  "seconds": 52.29,
+  "source": "LibriSpeech test-clean",
+  "ids": [
+   "237-126133-0000",
+   "237-126133-0001",
+   "237-126133-0002",
+   "237-126133-0003",
+   "237-126133-0004",
+   "237-126133-0005"
+  ]
+ },
+ {
+  "clip": "ls-clean-long__79740-0000",
+  "group": "ls-clean-long",
+  "seconds": 47.97,
+  "source": "LibriSpeech test-clean",
+  "ids": [
+   "7021-79740-0000",
+   "7021-79740-0001",
+   "7021-79740-0002",
+   "7021-79740-0003",
+   "7021-79740-0004",
+   "7021-79740-0005",
+   "7021-79740-0006"
+  ]
+ },
+ {
+  "clip": "ls-clean-long__122617-0000",
+  "group": "ls-clean-long",
+  "seconds": 55.42,
+  "source": "LibriSpeech test-clean",
+  "ids": [
+   "1320-122617-0000",
+   "1320-122617-0001",
+   "1320-122617-0002",
+   "1320-122617-0003",
+   "1320-122617-0004"
+  ]
+ },
+ {
+  "clip": "ls-clean-long__2271-0000",
+  "group": "ls-clean-long",
+  "seconds": 52.8,
+  "source": "LibriSpeech test-clean",
+  "ids": [
+   "4446-2271-0000",
+   "4446-2271-0001",
+   "4446-2271-0002",
+   "4446-2271-0003",
+   "4446-2271-0004",
+   "4446-2271-0005",
+   "4446-2271-0006",
+   "4446-2271-0007",
+   "4446-2271-0008",
+   "4446-2271-0009"
+  ]
+ },
+ {
+  "clip": "ls-other__5442-41169-0018",
+  "group": "ls-other",
+  "seconds": 3.94,
+  "source": "LibriSpeech test-other",
+  "ids": [
+   "5442-41169-0018"
+  ]
+ },
+ {
+  "clip": "ls-other__3997-180294-0017",
+  "group": "ls-other",
+  "seconds": 4.11,
+  "source": "LibriSpeech test-other",
+  "ids": [
+   "3997-180294-0017"
+  ]
+ },
+ {
+  "clip": "ls-other__4350-10919-0006",
+  "group": "ls-other",
+  "seconds": 3.55,
+  "source": "LibriSpeech test-other",
+  "ids": [
+   "4350-10919-0006"
+  ]
+ },
+ {
+  "clip": "ls-other__5484-24318-0028",
+  "group": "ls-other",
+  "seconds": 4.94,
+  "source": "LibriSpeech test-other",
+  "ids": [
+   "5484-24318-0028"
+  ]
+ },
+ {
+  "clip": "ls-other__3528-168669-0098",
+  "group": "ls-other",
+  "seconds": 3.37,
+  "source": "LibriSpeech test-other",
+  "ids": [
+   "3528-168669-0098"
+  ]
+ },
+ {
+  "clip": "ls-other__5764-299665-0008",
+  "group": "ls-other",
+  "seconds": 11.93,
+  "source": "LibriSpeech test-other",
+  "ids": [
+   "5764-299665-0008"
+  ]
+ },
+ {
+  "clip": "ls-other__5484-24317-0010",
+  "group": "ls-other",
+  "seconds": 6.17,
+  "source": "LibriSpeech test-other",
+  "ids": [
+   "5484-24317-0010"
+  ]
+ },
+ {
+  "clip": "ls-other__2414-159411-0004",
+  "group": "ls-other",
+  "seconds": 14.54,
+  "source": "LibriSpeech test-other",
+  "ids": [
+   "2414-159411-0004"
+  ]
+ },
+ {
+  "clip": "ls-other__2033-164915-0012",
+  "group": "ls-other",
+  "seconds": 6.48,
+  "source": "LibriSpeech test-other",
+  "ids": [
+   "2033-164915-0012"
+  ]
+ },
+ {
+  "clip": "ls-other__6128-63240-0025",
+  "group": "ls-other",
+  "seconds": 8.9,
+  "source": "LibriSpeech test-other",
+  "ids": [
+   "6128-63240-0025"
+  ]
+ },
+ {
+  "clip": "ls-other__7105-2330-0003",
+  "group": "ls-other",
+  "seconds": 17.05,
+  "source": "LibriSpeech test-other",
+  "ids": [
+   "7105-2330-0003"
+  ]
+ },
+ {
+  "clip": "ls-other__7018-75789-0008",
+  "group": "ls-other",
+  "seconds": 17.27,
+  "source": "LibriSpeech test-other",
+  "ids": [
+   "7018-75789-0008"
+  ]
+ },
+ {
+  "clip": "ls-other__4198-12281-0010",
+  "group": "ls-other",
+  "seconds": 15.79,
+  "source": "LibriSpeech test-other",
+  "ids": [
+   "4198-12281-0010"
+  ]
+ },
+ {
+  "clip": "ls-other__4350-9170-0025",
+  "group": "ls-other",
+  "seconds": 17.13,
+  "source": "LibriSpeech test-other",
+  "ids": [
+   "4350-9170-0025"
+  ]
+ },
+ {
+  "clip": "ls-other__3005-163390-0015",
+  "group": "ls-other",
+  "seconds": 16.0,
+  "source": "LibriSpeech test-other",
+  "ids": [
+   "3005-163390-0015"
+  ]
+ },
+ {
+  "clip": "ls-other-long__182399-0000",
+  "group": "ls-other-long",
+  "seconds": 52.38,
+  "source": "LibriSpeech test-other",
+  "ids": [
+   "3997-182399-0000",
+   "3997-182399-0001",
+   "3997-182399-0002",
+   "3997-182399-0003",
+   "3997-182399-0004",
+   "3997-182399-0005",
+   "3997-182399-0006"
+  ]
+ },
+ {
+  "clip": "ls-other-long__159411-0000",
+  "group": "ls-other-long",
+  "seconds": 50.1,
+  "source": "LibriSpeech test-other",
+  "ids": [
+   "2414-159411-0000",
+   "2414-159411-0001",
+   "2414-159411-0002",
+   "2414-159411-0003",
+   "2414-159411-0004"
+  ]
+ },
+ {
+  "clip": "ls-other-long__9170-0000",
+  "group": "ls-other-long",
+  "seconds": 49.77,
+  "source": "LibriSpeech test-other",
+  "ids": [
+   "4350-9170-0000",
+   "4350-9170-0001",
+   "4350-9170-0002",
+   "4350-9170-0003",
+   "4350-9170-0004",
+   "4350-9170-0005",
+   "4350-9170-0006",
+   "4350-9170-0007"
+  ]
+ },
+ {
+  "clip": "fleurs__1928",
+  "group": "fleurs",
+  "seconds": 6.78,
+  "source": "FLEURS en_us test",
+  "ids": [
+   1928
+  ]
+ },
+ {
+  "clip": "fleurs__1722",
+  "group": "fleurs",
+  "seconds": 9.42,
+  "source": "FLEURS en_us test",
+  "ids": [
+   1722
+  ]
+ },
+ {
+  "clip": "fleurs__1819",
+  "group": "fleurs",
+  "seconds": 12.94,
+  "source": "FLEURS en_us test",
+  "ids": [
+   1819
+  ]
+ },
+ {
+  "clip": "fleurs__1916",
+  "group": "fleurs",
+  "seconds": 10.44,
+  "source": "FLEURS en_us test",
+  "ids": [
+   1916
+  ]
+ },
+ {
+  "clip": "fleurs__1853",
+  "group": "fleurs",
+  "seconds": 5.16,
+  "source": "FLEURS en_us test",
+  "ids": [
+   1853
+  ]
+ },
+ {
+  "clip": "fleurs__1991",
+  "group": "fleurs",
+  "seconds": 11.4,
+  "source": "FLEURS en_us test",
+  "ids": [
+   1991
+  ]
+ },
+ {
+  "clip": "fleurs__1775",
+  "group": "fleurs",
+  "seconds": 11.54,
+  "source": "FLEURS en_us test",
+  "ids": [
+   1775
+  ]
+ },
+ {
+  "clip": "fleurs__1983",
+  "group": "fleurs",
+  "seconds": 20.86,
+  "source": "FLEURS en_us test",
+  "ids": [
+   1983
+  ]
+ },
+ {
+  "clip": "fleurs__1788",
+  "group": "fleurs",
+  "seconds": 15.6,
+  "source": "FLEURS en_us test",
+  "ids": [
+   1788
+  ]
+ },
+ {
+  "clip": "fleurs__1711",
+  "group": "fleurs",
+  "seconds": 15.56,
+  "source": "FLEURS en_us test",
+  "ids": [
+   1711
+  ]
+ },
+ {
+  "clip": "fleurs__1996",
+  "group": "fleurs",
+  "seconds": 15.6,
+  "source": "FLEURS en_us test",
+  "ids": [
+   1996
+  ]
+ },
+ {
+  "clip": "fleurs__1688",
+  "group": "fleurs",
+  "seconds": 17.44,
+  "source": "FLEURS en_us test",
+  "ids": [
+   1688
+  ]
+ },
+ {
+  "clip": "fleurs__1682",
+  "group": "fleurs",
+  "seconds": 15.64,
+  "source": "FLEURS en_us test",
+  "ids": [
+   1682
+  ]
+ },
+ {
+  "clip": "fleurs__1923",
+  "group": "fleurs",
+  "seconds": 15.36,
+  "source": "FLEURS en_us test",
+  "ids": [
+   1923
+  ]
+ },
+ {
+  "clip": "fleurs__1736",
+  "group": "fleurs",
+  "seconds": 6.0,
+  "source": "FLEURS en_us test",
+  "ids": [
+   1736
+  ]
+ },
+ {
+  "clip": "fleurs__1760",
+  "group": "fleurs",
+  "seconds": 6.9,
+  "source": "FLEURS en_us test",
+  "ids": [
+   1760
+  ]
+ },
+ {
+  "clip": "fleurs__1924",
+  "group": "fleurs",
+  "seconds": 7.68,
+  "source": "FLEURS en_us test",
+  "ids": [
+   1924
+  ]
+ },
+ {
+  "clip": "fleurs__1944",
+  "group": "fleurs",
+  "seconds": 10.5,
+  "source": "FLEURS en_us test",
+  "ids": [
+   1944
+  ]
+ },
+ {
+  "clip": "fleurs__1710",
+  "group": "fleurs",
+  "seconds": 9.12,
+  "source": "FLEURS en_us test",
+  "ids": [
+   1710
+  ]
+ },
+ {
+  "clip": "fleurs__1860",
+  "group": "fleurs",
+  "seconds": 7.26,
+  "source": "FLEURS en_us test",
+  "ids": [
+   1860
+  ]
+ },
+ {
+  "clip": "fleurs__1667",
+  "group": "fleurs",
+  "seconds": 14.22,
+  "source": "FLEURS en_us test",
+  "ids": [
+   1667
+  ]
+ },
+ {
+  "clip": "earnings__4468654-355",
+  "group": "earnings",
+  "seconds": 1.86,
+  "source": "Earnings-22",
+  "ids": [
+   "4468654-355"
+  ]
+ },
+ {
+  "clip": "earnings__4420696-220",
+  "group": "earnings",
+  "seconds": 1.28,
+  "source": "Earnings-22",
+  "ids": [
+   "4420696-220"
+  ]
+ },
+ {
+  "clip": "earnings__4483589-744",
+  "group": "earnings",
+  "seconds": 2.5,
+  "source": "Earnings-22",
+  "ids": [
+   "4483589-744"
+  ]
+ },
+ {
+  "clip": "earnings__4483589-456",
+  "group": "earnings",
+  "seconds": 2.74,
+  "source": "Earnings-22",
+  "ids": [
+   "4483589-456"
+  ]
+ },
+ {
+  "clip": "earnings__4482311-89",
+  "group": "earnings",
+  "seconds": 2.72,
+  "source": "Earnings-22",
+  "ids": [
+   "4482311-89"
+  ]
+ },
+ {
+  "clip": "earnings__4482311-59",
+  "group": "earnings",
+  "seconds": 3.02,
+  "source": "Earnings-22",
+  "ids": [
+   "4482311-59"
+  ]
+ },
+ {
+  "clip": "earnings__4461799-347",
+  "group": "earnings",
+  "seconds": 4.26,
+  "source": "Earnings-22",
+  "ids": [
+   "4461799-347"
+  ]
+ },
+ {
+  "clip": "earnings__4483589-45",
+  "group": "earnings",
+  "seconds": 4.46,
+  "source": "Earnings-22",
+  "ids": [
+   "4483589-45"
+  ]
+ },
+ {
+  "clip": "earnings__4482311-306",
+  "group": "earnings",
+  "seconds": 6.72,
+  "source": "Earnings-22",
+  "ids": [
+   "4482311-306"
+  ]
+ },
+ {
+  "clip": "earnings__4483589-231",
+  "group": "earnings",
+  "seconds": 6.94,
+  "source": "Earnings-22",
+  "ids": [
+   "4483589-231"
+  ]
+ },
+ {
+  "clip": "earnings__4482249-39",
+  "group": "earnings",
+  "seconds": 6.34,
+  "source": "Earnings-22",
+  "ids": [
+   "4482249-39"
+  ]
+ },
+ {
+  "clip": "earnings__4482311-299",
+  "group": "earnings",
+  "seconds": 14.5,
+  "source": "Earnings-22",
+  "ids": [
+   "4482311-299"
+  ]
+ },
+ {
+  "clip": "earnings__4482249-427",
+  "group": "earnings",
+  "seconds": 13.16,
+  "source": "Earnings-22",
+  "ids": [
+   "4482249-427"
+  ]
+ },
+ {
+  "clip": "earnings__4482311-343",
+  "group": "earnings",
+  "seconds": 10.06,
+  "source": "Earnings-22",
+  "ids": [
+   "4482311-343"
+  ]
+ },
+ {
+  "clip": "earnings__4461799-337",
+  "group": "earnings",
+  "seconds": 14.24,
+  "source": "Earnings-22",
+  "ids": [
+   "4461799-337"
+  ]
+ },
+ {
+  "clip": "earnings__4482311-85",
+  "group": "earnings",
+  "seconds": 8.08,
+  "source": "Earnings-22",
+  "ids": [
+   "4482311-85"
+  ]
+ },
+ {
+  "clip": "earnings__4482249-173",
+  "group": "earnings",
+  "seconds": 16.6,
+  "source": "Earnings-22",
+  "ids": [
+   "4482249-173"
+  ]
+ },
+ {
+  "clip": "earnings__4468654-19",
+  "group": "earnings",
+  "seconds": 19.96,
+  "source": "Earnings-22",
+  "ids": [
+   "4468654-19"
+  ]
+ },
+ {
+  "clip": "earnings__4483589-753",
+  "group": "earnings",
+  "seconds": 16.98,
+  "source": "Earnings-22",
+  "ids": [
+   "4483589-753"
+  ]
+ },
+ {
+  "clip": "earnings__4468654-351",
+  "group": "earnings",
+  "seconds": 18.76,
+  "source": "Earnings-22",
+  "ids": [
+   "4468654-351"
+  ]
+ },
+ {
+  "clip": "earnings__4461799-336",
+  "group": "earnings",
+  "seconds": 17.56,
+  "source": "Earnings-22",
+  "ids": [
+   "4461799-336"
+  ]
+ },
+ {
+  "clip": "earnings__4461799-104",
+  "group": "earnings",
+  "seconds": 16.94,
+  "source": "Earnings-22",
+  "ids": [
+   "4461799-104"
+  ]
+ },
+ {
+  "clip": "earnings__4482249-418",
+  "group": "earnings",
+  "seconds": 20.74,
+  "source": "Earnings-22",
+  "ids": [
+   "4482249-418"
+  ]
+ },
+ {
+  "clip": "earnings__4482249-74",
+  "group": "earnings",
+  "seconds": 28.24,
+  "source": "Earnings-22",
+  "ids": [
+   "4482249-74"
+  ]
+ },
+ {
+  "clip": "earnings-long__4483589-580",
+  "group": "earnings-long",
+  "seconds": 49.48,
+  "source": "Earnings-22",
+  "ids": [
+   "4483589-580",
+   "4483589-581",
+   "4483589-582",
+   "4483589-583",
+   "4483589-584",
+   "4483589-585",
+   "4483589-586"
+  ]
+ },
+ {
+  "clip": "earnings-long__4461799-128",
+  "group": "earnings-long",
+  "seconds": 65.16,
+  "source": "Earnings-22",
+  "ids": [
+   "4461799-128",
+   "4461799-129",
+   "4461799-130",
+   "4461799-131",
+   "4461799-132",
+   "4461799-133",
+   "4461799-134"
+  ]
+ },
+ {
+  "clip": "earnings-long__4482311-129",
+  "group": "earnings-long",
+  "seconds": 50.96,
+  "source": "Earnings-22",
+  "ids": [
+   "4482311-129",
+   "4482311-130",
+   "4482311-131",
+   "4482311-132",
+   "4482311-133",
+   "4482311-134",
+   "4482311-135"
+  ]
+ },
+ {
+  "clip": "earnings-long__4482311-222",
+  "group": "earnings-long",
+  "seconds": 53.68,
+  "source": "Earnings-22",
+  "ids": [
+   "4482311-222",
+   "4482311-223",
+   "4482311-224",
+   "4482311-225",
+   "4482311-226",
+   "4482311-227",
+   "4482311-228"
+  ]
+ },
+ {
+  "clip": "earnings-long__4482249-97",
+  "group": "earnings-long",
+  "seconds": 56.84,
+  "source": "Earnings-22",
+  "ids": [
+   "4482249-97",
+   "4482249-98",
+   "4482249-99",
+   "4482249-100",
+   "4482249-101",
+   "4482249-102",
+   "4482249-103"
+  ]
+ },
+ {
+  "clip": "earnings-long__4482249-63",
+  "group": "earnings-long",
+  "seconds": 51.73,
+  "source": "Earnings-22",
+  "ids": [
+   "4482249-63",
+   "4482249-64",
+   "4482249-65",
+   "4482249-66"
+  ]
+ },
+ {
+  "clip": "ami__EN2002b_H02_FEO072_0168547_0168840",
+  "group": "ami",
+  "seconds": 2.93,
+  "source": "AMI IHM test",
+  "ids": [
+   "AMI_EN2002b_H02_FEO072_0168547_0168840"
+  ]
+ },
+ {
+  "clip": "ami__EN2002a_H01_FEO070_0023119_0023309",
+  "group": "ami",
+  "seconds": 1.9,
+  "source": "AMI IHM test",
+  "ids": [
+   "AMI_EN2002a_H01_FEO070_0023119_0023309"
+  ]
+ },
+ {
+  "clip": "ami__EN2002b_H03_MEE073_0143373_0143725",
+  "group": "ami",
+  "seconds": 3.52,
+  "source": "AMI IHM test",
+  "ids": [
+   "AMI_EN2002b_H03_MEE073_0143373_0143725"
+  ]
+ },
+ {
+  "clip": "ami__EN2002c_H02_MEE071_0063289_0063528",
+  "group": "ami",
+  "seconds": 2.39,
+  "source": "AMI IHM test",
+  "ids": [
+   "AMI_EN2002c_H02_MEE071_0063289_0063528"
+  ]
+ },
+ {
+  "clip": "ami__EN2002c_H01_FEO072_0135159_0135296",
+  "group": "ami",
+  "seconds": 1.37,
+  "source": "AMI IHM test",
+  "ids": [
+   "AMI_EN2002c_H01_FEO072_0135159_0135296"
+  ]
+ },
+ {
+  "clip": "ami__EN2002a_H03_MEE071_0096603_0096861",
+  "group": "ami",
+  "seconds": 2.58,
+  "source": "AMI IHM test",
+  "ids": [
+   "AMI_EN2002a_H03_MEE071_0096603_0096861"
+  ]
+ },
+ {
+  "clip": "ami__EN2002b_H03_MEE073_0063158_0063436",
+  "group": "ami",
+  "seconds": 2.78,
+  "source": "AMI IHM test",
+  "ids": [
+   "AMI_EN2002b_H03_MEE073_0063158_0063436"
+  ]
+ },
+ {
+  "clip": "ami__EN2002b_H03_MEE073_0063436_0063952",
+  "group": "ami",
+  "seconds": 5.16,
+  "source": "AMI IHM test",
+  "ids": [
+   "AMI_EN2002b_H03_MEE073_0063436_0063952"
+  ]
+ },
+ {
+  "clip": "ami__EN2002a_H01_FEO070_0210996_0211532",
+  "group": "ami",
+  "seconds": 5.36,
+  "source": "AMI IHM test",
+  "ids": [
+   "AMI_EN2002a_H01_FEO070_0210996_0211532"
+  ]
+ },
+ {
+  "clip": "ami__EN2002b_H03_MEE073_0080142_0080966",
+  "group": "ami",
+  "seconds": 8.24,
+  "source": "AMI IHM test",
+  "ids": [
+   "AMI_EN2002b_H03_MEE073_0080142_0080966"
+  ]
+ },
+ {
+  "clip": "ami__EN2002a_H01_FEO070_0166778_0167381",
+  "group": "ami",
+  "seconds": 6.03,
+  "source": "AMI IHM test",
+  "ids": [
+   "AMI_EN2002a_H01_FEO070_0166778_0167381"
+  ]
+ },
+ {
+  "clip": "ami__EN2002b_H01_MEE071_0146289_0147004",
+  "group": "ami",
+  "seconds": 7.15,
+  "source": "AMI IHM test",
+  "ids": [
+   "AMI_EN2002b_H01_MEE071_0146289_0147004"
+  ]
+ },
+ {
+  "clip": "ami__EN2002a_H02_FEO072_0064139_0064653",
+  "group": "ami",
+  "seconds": 5.14,
+  "source": "AMI IHM test",
+  "ids": [
+   "AMI_EN2002a_H02_FEO072_0064139_0064653"
+  ]
+ },
+ {
+  "clip": "ami__EN2002b_H01_MEE071_0072435_0073145",
+  "group": "ami",
+  "seconds": 7.1,
+  "source": "AMI IHM test",
+  "ids": [
+   "AMI_EN2002b_H01_MEE071_0072435_0073145"
+  ]
+ },
+ {
+  "clip": "ami__EN2002c_H01_FEO072_0095852_0097625",
+  "group": "ami",
+  "seconds": 17.73,
+  "source": "AMI IHM test",
+  "ids": [
+   "AMI_EN2002c_H01_FEO072_0095852_0097625"
+  ]
+ },
+ {
+  "clip": "ami__EN2002b_H00_FEO070_0042617_0044950",
+  "group": "ami",
+  "seconds": 23.33,
+  "source": "AMI IHM test",
+  "ids": [
+   "AMI_EN2002b_H00_FEO070_0042617_0044950"
+  ]
+ },
+ {
+  "clip": "ami__EN2002b_H00_FEO070_0027547_0029410",
+  "group": "ami",
+  "seconds": 18.63,
+  "source": "AMI IHM test",
+  "ids": [
+   "AMI_EN2002b_H00_FEO070_0027547_0029410"
+  ]
+ },
+ {
+  "clip": "ami__EN2002c_H01_FEO072_0101016_0101819",
+  "group": "ami",
+  "seconds": 8.03,
+  "source": "AMI IHM test",
+  "ids": [
+   "AMI_EN2002c_H01_FEO072_0101016_0101819"
+  ]
+ },
+ {
+  "clip": "ami__EN2002a_H03_MEE071_0075888_0076047",
+  "group": "ami",
+  "seconds": 1.59,
+  "source": "AMI IHM test",
+  "ids": [
+   "AMI_EN2002a_H03_MEE071_0075888_0076047"
+  ]
+ },
+ {
+  "clip": "ami__EN2002c_H02_MEE071_0253216_0253648",
+  "group": "ami",
+  "seconds": 4.32,
+  "source": "AMI IHM test",
+  "ids": [
+   "AMI_EN2002c_H02_MEE071_0253216_0253648"
+  ]
+ },
+ {
+  "clip": "ami__EN2002c_H01_FEO072_0057730_0058078",
+  "group": "ami",
+  "seconds": 3.48,
+  "source": "AMI IHM test",
+  "ids": [
+   "AMI_EN2002c_H01_FEO072_0057730_0058078"
+  ]
+ },
+ {
+  "clip": "ami-long__EN2002a_H02_FEO072_0129792_0130668",
+  "group": "ami-long",
+  "seconds": 45.14,
+  "source": "AMI IHM test",
+  "ids": [
+   "AMI_EN2002a_H02_FEO072_0129792_0130668",
+   "AMI_EN2002a_H02_FEO072_0131325_0132073",
+   "AMI_EN2002a_H02_FEO072_0132635_0133008",
+   "AMI_EN2002a_H02_FEO072_0133146_0133367",
+   "AMI_EN2002a_H02_FEO072_0133367_0133778",
+   "AMI_EN2002a_H02_FEO072_0133778_0134161",
+   "AMI_EN2002a_H02_FEO072_0135749_0136115",
+   "AMI_EN2002a_H02_FEO072_0136115_0136646",
+   "AMI_EN2002a_H02_FEO072_0136646_0136971"
+  ]
+ },
+ {
+  "clip": "ami-long__EN2002a_H03_MEE071_0108343_0108907",
+  "group": "ami-long",
+  "seconds": 47.09,
+  "source": "AMI IHM test",
+  "ids": [
+   "AMI_EN2002a_H03_MEE071_0108343_0108907",
+   "AMI_EN2002a_H03_MEE071_0108907_0109230",
+   "AMI_EN2002a_H03_MEE071_0109230_0110041",
+   "AMI_EN2002a_H03_MEE071_0110041_0110272",
+   "AMI_EN2002a_H03_MEE071_0111440_0111661",
+   "AMI_EN2002a_H03_MEE071_0112175_0112406",
+   "AMI_EN2002a_H03_MEE071_0112504_0113049",
+   "AMI_EN2002a_H03_MEE071_0114890_0115025",
+   "AMI_EN2002a_H03_MEE071_0116729_0116852",
+   "AMI_EN2002a_H03_MEE071_0116852_0117355",
+   "AMI_EN2002a_H03_MEE071_0117355_0118027"
+  ]
+ },
+ {
+  "clip": "ami-long__EN2002a_H02_FEO072_0137199_0137656",
+  "group": "ami-long",
+  "seconds": 42.94,
+  "source": "AMI IHM test",
+  "ids": [
+   "AMI_EN2002a_H02_FEO072_0137199_0137656",
+   "AMI_EN2002a_H02_FEO072_0137932_0138302",
+   "AMI_EN2002a_H02_FEO072_0138539_0139209",
+   "AMI_EN2002a_H02_FEO072_0139668_0140326",
+   "AMI_EN2002a_H02_FEO072_0140326_0140557",
+   "AMI_EN2002a_H02_FEO072_0141221_0141861",
+   "AMI_EN2002a_H02_FEO072_0141861_0142167",
+   "AMI_EN2002a_H02_FEO072_0142167_0142569",
+   "AMI_EN2002a_H02_FEO072_0142891_0143171"
+  ]
+ },
+ {
+  "clip": "ami-long__EN2002b_H03_MEE073_0147168_0147522",
+  "group": "ami-long",
+  "seconds": 44.75,
+  "source": "AMI IHM test",
+  "ids": [
+   "AMI_EN2002b_H03_MEE073_0147168_0147522",
+   "AMI_EN2002b_H03_MEE073_0147522_0147857",
+   "AMI_EN2002b_H03_MEE073_0147857_0148685",
+   "AMI_EN2002b_H03_MEE073_0148685_0148921",
+   "AMI_EN2002b_H03_MEE073_0148921_0149202",
+   "AMI_EN2002b_H03_MEE073_0149202_0149408",
+   "AMI_EN2002b_H03_MEE073_0149408_0149827",
+   "AMI_EN2002b_H03_MEE073_0149964_0150225",
+   "AMI_EN2002b_H03_MEE073_0150225_0150542",
+   "AMI_EN2002b_H03_MEE073_0150688_0151137",
+   "AMI_EN2002b_H03_MEE073_0151304_0151743"
+  ]
+ },
+ {
+  "clip": "ami-long__EN2002c_H02_MEE071_0061027_0061353",
+  "group": "ami-long",
+  "seconds": 46.46,
+  "source": "AMI IHM test",
+  "ids": [
+   "AMI_EN2002c_H02_MEE071_0061027_0061353",
+   "AMI_EN2002c_H02_MEE071_0061353_0061562",
+   "AMI_EN2002c_H02_MEE071_0061822_0062225",
+   "AMI_EN2002c_H02_MEE071_0063289_0063528",
+   "AMI_EN2002c_H02_MEE071_0063528_0063805",
+   "AMI_EN2002c_H02_MEE071_0064279_0064838",
+   "AMI_EN2002c_H02_MEE071_0064838_0065272",
+   "AMI_EN2002c_H02_MEE071_0065272_0065398",
+   "AMI_EN2002c_H02_MEE071_0065605_0065949",
+   "AMI_EN2002c_H02_MEE071_0065949_0066289",
+   "AMI_EN2002c_H02_MEE071_0066289_0066787",
+   "AMI_EN2002c_H02_MEE071_0066787_0067293"
+  ]
+ }
+]

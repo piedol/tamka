@@ -1,0 +1,34 @@
+[package]
+name = "tamka"
+version = "0.1.0"
+edition = "2024"
+description = "Dictation for Apple silicon Macs: press ⌥V, speak, press ⌥V, and the text is typed where you are"
+license = "PolyForm-Noncommercial-1.0.0"
+publish = false
+
+[[bin]]
+name = "Tamka"
+path = "src/main.rs"
+
+[dependencies]
+objc2 = "0.6.5"
+objc2-foundation = "0.3.2"
+objc2-app-kit = "0.3.2"
+objc2-avf-audio = { version = "0.3.2", features = ["block2"] }
+objc2-core-graphics = "0.3.2"
+objc2-core-foundation = "0.3.2"
+objc2-quartz-core = "0.3.2"
+objc2-service-management = "0.3.2"
+block2 = "0.6.2"
+dispatch2 = "0.3.1"
+global-hotkey = "0.9.0"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+strip = true
+debug = false

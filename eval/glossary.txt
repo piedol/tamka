@@ -1,0 +1,6 @@
+postgres
+Zapier
+Docker
+Kubernetes
+Okonkwo
+iPhone

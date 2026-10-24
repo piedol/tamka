@@ -1,0 +1,15 @@
+/target
+/dist
+.DS_Store
+/engine/.build/
+/eval/clips/
+/eval/results/raw/
+/eval/.venv/
+/eval/models/
+/eval/sets/*/clips/
+/eval/sets/*/.cache/
+/eval/sets/*/.download/
+/eval/.cache/
+/eval/sets/*/*.log
+/eval/sets/*/results/*/meta.json.bak
+/assets/AppIcon.iconset/

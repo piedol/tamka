@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key><string>en</string>
+	<key>CFBundleExecutable</key><string>Tamka</string>
+	<key>CFBundleIconFile</key><string>AppIcon</string>
+	<key>CFBundleIdentifier</key><string>top.piedol.tamka</string>
+	<key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
+	<key>CFBundleName</key><string>Tamka</string>
+	<key>CFBundleDisplayName</key><string>Tamka</string>
+	<key>CFBundlePackageType</key><string>APPL</string>
+	<key>CFBundleShortVersionString</key><string>__VERSION__</string>
+	<key>CFBundleVersion</key><string>__BUILD__</string>
+	<key>LSApplicationCategoryType</key><string>public.app-category.productivity</string>
+	<key>LSMinimumSystemVersion</key><string>26.0</string>
+	<key>LSArchitecturePriority</key><array><string>arm64</string></array>
+	<key>LSRequiresNativeExecution</key><true/>
+	<key>LSUIElement</key><true/>
+	<key>NSHighResolutionCapable</key><true/>
+	<key>NSMicrophoneUsageDescription</key><string>Tamka listens only while you're dictating, between pressing your shortcut to start and pressing it again to finish.</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key><string>top.piedol.tamka</string>
+			<key>CFBundleURLSchemes</key><array><string>tamka</string></array>
+		</dict>
+	</array>
+	<key>NSHumanReadableCopyright</key><string>© 2026 piedol</string>
+</dict>
+</plist>
