@@ -8,7 +8,7 @@ Aim for about **25 clips, 15–20 minutes in total**. A typical dictation is abo
 
 | Count | Kind | Example |
 |---|---|---|
-| 6 | Instructions full of jargon | Coding instructions with crate names, file paths, tools (Rust, objc2, Docker, Kubernetes) |
+| 6 | Prompts to AI coding assistants | Coding instructions with crate names, file paths, tools (Rust, objc2, Docker, Kubernetes) |
 | 4 | Client or Discord messages | Client and company names, people's names |
 | 3 | Emails | A normal email with a greeting and sign-off |
 | 2 | Numbers | Dates, times, money, versions, phone numbers ("version 2.1.308", "$1,250 by October 24th") |
