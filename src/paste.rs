@@ -83,7 +83,7 @@ pub fn deliver(text: &str, settings: &Settings) -> Outcome {
     Outcome::Pasted
 }
 
-/// ⌥ from ⌥V may still be held; pressing ⌘V while it is would send ⌥⌘V.
+/// The shortcut's modifier (⌃ from ⌃V) may still be held; pressing ⌘V while it is would send ⌃⌘V.
 fn wait_for_modifiers_up(max: Duration) {
     let held = CGEventFlags::MaskCommand | CGEventFlags::MaskAlternate | CGEventFlags::MaskControl | CGEventFlags::MaskShift;
     let until = Instant::now() + max;

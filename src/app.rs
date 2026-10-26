@@ -1,5 +1,5 @@
 //! App lifecycle, the menu-bar item, and the dictation state machine:
-//! idle → (⌥V) recording → (⌥V) transcribing → paste → idle. Esc cancels a recording.
+//! idle → (⌃V) recording → (⌃V) transcribing → paste → idle. Esc cancels a recording.
 
 use std::cell::{Cell, RefCell};
 use std::sync::Mutex;

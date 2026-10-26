@@ -1,5 +1,5 @@
 //! Global shortcuts via Carbon (`global-hotkey`). No Accessibility permission needed.
-//! ⌥V toggles dictation; Esc is claimed only while recording, to cancel.
+//! ⌃V (by default) toggles dictation; Esc is claimed only while recording, to cancel.
 
 use std::cell::RefCell;
 use std::sync::atomic::{AtomicU32, Ordering};

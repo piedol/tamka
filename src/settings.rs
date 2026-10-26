@@ -54,7 +54,7 @@ pub struct Settings {
 impl Default for Settings {
     fn default() -> Self {
         Settings {
-            shortcut: Shortcut { key: keys::vk::V, mods: keys::OPTION },
+            shortcut: Shortcut { key: keys::vk::V, mods: keys::CONTROL },
             engine: "parakeet ultra".into(),
             numbers_as_digits: false,
             keep_on_clipboard: true,
@@ -182,7 +182,7 @@ mod tests {
         let s: Settings = serde_json::from_str(r#"{"engine": "parakeet v2"}"#).unwrap();
         assert_eq!(s.engine, "parakeet v2");
         assert!(s.keep_on_clipboard);
-        assert_eq!(s.shortcut, Shortcut { key: keys::vk::V, mods: keys::OPTION });
+        assert_eq!(s.shortcut, Shortcut { key: keys::vk::V, mods: keys::CONTROL });
         let text = serde_json::to_string(&s).unwrap();
         let back: Settings = serde_json::from_str(&text).unwrap();
         assert_eq!(back.find_replace, s.find_replace);

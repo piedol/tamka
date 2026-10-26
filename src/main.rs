@@ -1,4 +1,4 @@
-//! Tamka: dictation for Apple silicon Macs. Press ⌥V, speak, press ⌥V again, and
+//! Tamka: dictation for Apple silicon Macs. Press ⌃V, speak, press ⌃V again, and
 //! the text is pasted where you're typing. Speech runs on the Neural Engine
 //! (Parakeet via FluidAudio) in a helper process; this app is the menu-bar shell.
 

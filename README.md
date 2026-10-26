@@ -37,8 +37,8 @@ Before typing, Tamka removes "um" and "uh", collapses stutters, and turns spoken
 ## Dictating
 
 1. Click where the text should go: an email, a chat, a code editor or a search box.
-2. Press **⌥V** and speak. A small indicator shows that Tamka is listening, and for how long.
-3. Press **⌥V** again. Tamka types what you said at the cursor and keeps a copy on the clipboard.
+2. Press **⌃V** and speak. A small indicator shows that Tamka is listening, and for how long.
+3. Press **⌃V** again. Tamka types what you said at the cursor and keeps a copy on the clipboard.
 
 Press **Esc** while Tamka is listening to throw the recording away.
 
@@ -48,7 +48,7 @@ Press **Esc** while Tamka is listening to throw the recording away.
   <img src="docs/images/transcribing.png" width="147" alt="The indicator while transcribing">
 </p>
 
-⌥V is the default shortcut. You can pick any combination that includes ⌘, ⌃ or ⌥ in **Settings › General**.
+⌃V is the default shortcut. You can pick any combination that includes ⌘, ⌃ or ⌥ in **Settings › General**.
 
 ## Features
 
