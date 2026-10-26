@@ -15,7 +15,9 @@ done
 
 VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
 BUILD=$(git rev-list --count HEAD 2>/dev/null || echo 1)
-IDENTITY=${TAMKA_SIGN_IDENTITY:-"Developer ID Application: Your Name (TEAMID)"}
+# Sign with $TAMKA_SIGN_IDENTITY, or else the first Developer ID Application certificate
+# in the keychain. Without either, the app gets an ad-hoc signature.
+IDENTITY=${TAMKA_SIGN_IDENTITY:-$(security find-identity -v -p codesigning | sed -n 's/.*"\(Developer ID Application: [^"]*\)".*/\1/p' | head -1)}
 
 cargo build --release --target aarch64-apple-darwin
 (cd engine && swift build -c release)
@@ -33,7 +35,7 @@ cp assets/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 cp assets/MenuIcon.png assets/MenuIcon@2x.png "$APP/Contents/Resources/"
 
 sign() {
-  if security find-identity -v -p codesigning | grep -q "$IDENTITY"; then
+  if [[ -n $IDENTITY ]] && security find-identity -v -p codesigning | grep -qF -- "\"$IDENTITY\""; then
     codesign --force --options runtime --timestamp=none --sign "$IDENTITY" "$@"
   else
     echo "warning: signing identity not found, using ad-hoc signature (permissions reset on every build)"

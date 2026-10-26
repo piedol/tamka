@@ -3,7 +3,9 @@
 .DS_Store
 /engine/.build/
 /eval/clips/
-/eval/results/raw/
+/eval/glossary.local.txt
+/eval/results/
+/eval/sets/*/results/
 /eval/.venv/
 /eval/models/
 /eval/sets/*/clips/
@@ -11,5 +13,4 @@
 /eval/sets/*/.download/
 /eval/.cache/
 /eval/sets/*/*.log
-/eval/sets/*/results/*/meta.json.bak
 /assets/AppIcon.iconset/

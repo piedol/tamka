@@ -43,7 +43,8 @@ def use_set(name: str) -> None:
     base = HERE / "sets" / name
     CLIPS, CACHE, RESULTS = base / "clips", base / ".cache" / "wav", base / "results"
 AUDIO_EXT = {".wav", ".m4a", ".mp3", ".aiff", ".aif", ".caf", ".flac", ".ogg", ".mp4", ".mov", ".qta"}
-GLOSSARY = HERE / "glossary.txt"
+# Your own words go in glossary.local.txt (git-ignored); glossary.txt is an example.
+GLOSSARY = next((p for p in (HERE / "glossary.local.txt", HERE / "glossary.txt") if p.exists()), HERE / "glossary.txt")
 
 
 def clip_list() -> list[tuple[str, Path]]:

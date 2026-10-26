@@ -1,71 +1,82 @@
-# Tamka speech model evaluation
+# Speech model evaluation
 
-These clips decide which speech model Tamka ships with. Every candidate model transcribes every clip. Each one is scored on accuracy (word error rate against your transcript), speed (time from end of audio to text), and memory.
+These scripts compare speech models on the same clips. Each model transcribes every clip and is scored on accuracy (word error rate against a reference transcript), speed (time from the end of the audio to the text) and memory. Tamka's default model was chosen this way; the results are in [docs/benchmark.md](../docs/benchmark.md).
 
-## What to record
+You can run the public clip set, or record your own clips to see which model handles your voice, microphone and vocabulary best.
 
-Aim for about **25 clips, 15–20 minutes in total**. A typical dictation is about 50 seconds, so most clips should be 20–90 seconds long. Talk the way you normally dictate. Don't slow down or over-enunciate.
+## Requirements
 
-| Count | Kind | Example |
-|---|---|---|
-| 6 | Prompts to AI coding assistants | Coding instructions with crate names, file paths, tools (Rust, objc2, Docker, Kubernetes) |
-| 4 | Client or Discord messages | Client and company names, people's names |
-| 3 | Emails | A normal email with a greeting and sign-off |
-| 2 | Numbers | Dates, times, money, versions, phone numbers ("version 2.1.308", "$1,250 by October 24th") |
-| 2 | Spoken punctuation | "open paren", "new line", the commands from your find/replace list |
-| 2 | Self-corrections and filler | "um", "actually no, make that Thursday" |
-| 2 | Fast speech | Your quickest natural pace |
-| 2 | Hard audio | Quiet voice, a fan or music in the background, or across the room |
-| 2 | Very short | 2–5 seconds: "yes go ahead", "commit and push" |
-| 1 | Long | 2–3 minutes in one go |
+- A Mac with Apple silicon
+- [uv](https://docs.astral.sh/uv/) for the Python scripts
+- Xcode 26 or later, to build Tamka's speech engine. `bench.sh` builds it on first run.
+- For the Whisper baseline, whisper.cpp's `whisper-server` (for example `brew install whisper-cpp`). `bench.sh` downloads the model on first use.
+- Qwen3-ASR and Granite run through MLX; uv installs what they need.
 
-Use the microphone and room you normally dictate in. If you also dictate with another mic (headset, AirPods), record a few clips with it too.
+## The public clip set
 
-## How to record
-
-Each clip is two files with the same name in `clips/`:
-
-```text
-clips/07-client-email.wav   the audio (wav, m4a, mp3 and others are fine; they get converted)
-clips/07-client-email.txt   exactly what you said
-```
-
-The easy way is the recorder script. It records from your default mic, and you press `q` to stop. It then opens the matching transcript file in TextEdit:
+117 clips from LibriSpeech, FLEURS, Earnings-22 and AMI, with human-checked transcripts. The audio isn't stored in the repository; `fetch_public.py` downloads it and cuts the clips.
 
 ```bash
-cd "eval" && ./record.sh 07-client-email
-```
-
-To use a different mic, set `MIC` to its name: `MIC="AirPods Pro" ./record.sh 08-headset-test`. The first run asks for microphone access for your terminal app.
-
-Voice Memos or QuickTime recordings also work: drop the file into `clips/` and add the matching `.txt`.
-
-## How to write the transcripts
-
-- Write **the words you actually said**, in the form you'd want pasted: normal capitalization, punctuation, and numbers written the way you'd type them.
-- If you said a spoken command like "open paren", write the words ("open paren"), not the symbol. Your find/replace rules run after the model, so they're tested separately.
-- Filler words ("um", "uh") are optional; the scorer ignores them.
-- Spell names and jargon correctly. Those are exactly the words the models get wrong.
-
-The scorer reports two numbers: plain word accuracy (case and punctuation ignored), and a formatting score (whether the punctuation and capitalization match your text).
-
-Clips stay on this Mac. `clips/` is git-ignored so your voice never ends up in a repository.
-
-## Running the benchmark
-
-```bash
-./bench.sh                         # every contender over clips/, then the scoreboard
-./bench.sh parakeet-ultra qwen3-asr-1.7b   # just these
-uv run score.py --clips            # re-print scores with a per-clip breakdown
-```
-
-## Public clip set
-
-`sets/public/` holds 117 clips from LibriSpeech, FLEURS, Earnings-22 and AMI, with human-checked transcripts. Rebuild and run it with:
-
-```bash
+cd eval
 uv run fetch_public.py
 SET=public ./bench.sh
 ```
 
-Results and the recommendation are in [docs/benchmark-public.md](../docs/benchmark-public.md).
+## Your own clips
+
+About 25 clips and 15–20 minutes in total gives a useful result. Most dictations are 20–90 seconds long, so most clips should be too. Speak the way you normally dictate, in your usual room and with your usual microphone.
+
+A good mix:
+
+| Clips | Kind | Example |
+|---|---|---|
+| 6 | Instructions full of jargon | File paths, library and product names |
+| 4 | Messages | Names of people and companies |
+| 3 | Emails | A greeting, a few paragraphs and a sign-off |
+| 2 | Numbers | Dates, times, money and versions ("version 2.1.308", "$1,250 by October 24th") |
+| 2 | Spoken punctuation | "open paren", "new line" |
+| 2 | Corrections and filler | "um", "actually no, make that Thursday" |
+| 2 | Fast speech | Your quickest natural pace |
+| 2 | Hard audio | A quiet voice, a fan or music in the background |
+| 2 | Very short | 2–5 seconds: "yes go ahead" |
+| 1 | Long | 2–3 minutes in one go |
+
+### Recording
+
+Each clip is two files with the same name in `eval/clips/`:
+
+```text
+clips/07-client-email.wav   the audio (wav, m4a, mp3 and others are converted)
+clips/07-client-email.txt   exactly what you said
+```
+
+The recorder script records from the default microphone until you press `q`, then opens the transcript file in TextEdit:
+
+```bash
+cd eval && ./record.sh 07-client-email
+```
+
+To record from another microphone, set `MIC` to its name: `MIC="AirPods Pro" ./record.sh 08-headset`. The first run asks for microphone access for your terminal app. Recordings from Voice Memos or QuickTime work too: put the file in `clips/` and add the matching `.txt`.
+
+`clips/` is git-ignored, so your recordings never end up in a repository.
+
+### Writing the transcripts
+
+- Write the words you actually said, the way you'd want them typed: normal capitals, punctuation and numbers.
+- For a spoken command such as "open paren", write the words, not the symbol. Tamka's command rules run after the model and are tested separately.
+- Filler words ("um", "uh") are optional; the scorer ignores them.
+- Spell names and jargon correctly. Those are the words models get wrong most often.
+
+### Your vocabulary
+
+Models that accept a prompt or hotwords get the words in `glossary.txt`, one per line. Put your own in `glossary.local.txt`, which is git-ignored and used instead when it exists.
+
+## Running
+
+```bash
+./bench.sh                                   # every contender over clips/, then the scores
+./bench.sh parakeet-ultra qwen3-asr-1.7b     # only these models
+uv run score.py --clips                      # print the scores again, clip by clip
+```
+
+The scorer reports plain word accuracy (case and punctuation ignored) and a formatting score (whether punctuation and capitals match your transcript). Model outputs go to `results/` (or `sets/public/results/`), which are git-ignored.
