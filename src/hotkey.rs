@@ -34,6 +34,7 @@ pub fn install(shortcut: Shortcut) -> Result<(), String> {
                 }
                 let id = event.id();
                 if id == DICTATE_ID.load(Ordering::Relaxed) {
+                    crate::app::shortcut_pressed();
                     util::main_async(crate::app::toggle);
                 } else if id == ESC_ID.load(Ordering::Relaxed) {
                     util::main_async(crate::app::cancel);

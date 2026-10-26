@@ -2,7 +2,8 @@
 //! idle → (⌥V) recording → (⌥V) transcribing → paste → idle. Esc cancels a recording.
 
 use std::cell::{Cell, RefCell};
-use std::time::SystemTime;
+use std::sync::Mutex;
+use std::time::{Instant, SystemTime};
 
 use objc2::rc::Retained;
 use objc2::{sel, MainThreadMarker, MainThreadOnly};
@@ -10,7 +11,7 @@ use objc2_app_kit::{
     NSApplicationActivationPolicy, NSColor, NSEventModifierFlags, NSImageSymbolConfiguration, NSMenu, NSMenuItem,
     NSSound, NSStatusBar, NSStatusItem, NSVariableStatusItemLength,
 };
-use objc2_foundation::{NSArray, NSString, NSTimer};
+use objc2_foundation::{NSActivityOptions, NSArray, NSProcessInfo, NSString, NSTimer};
 use objc2_service_management::{SMAppService, SMAppServiceStatus};
 
 use crate::permissions::{self, Mic};
@@ -44,8 +45,13 @@ struct Shell {
     menu: Retained<NSMenu>,
 }
 
+/// When the shortcut was pressed, read on the main thread to time how long it waited.
+static PRESSED: Mutex<Option<Instant>> = Mutex::new(None);
+
 thread_local! {
     static PHASE: Cell<Phase> = const { Cell::new(Phase::Idle) };
+    /// When the current recording was asked for, to time when the mic went live.
+    static ASKED: Cell<Option<Instant>> = const { Cell::new(None) };
     static SHELL: RefCell<Option<Shell>> = const { RefCell::new(None) };
     static HISTORY: RefCell<Vec<(String, SystemTime)>> = const { RefCell::new(Vec::new()) };
     static TIMER: RefCell<Option<Retained<NSTimer>>> = const { RefCell::new(None) };
@@ -116,6 +122,15 @@ pub fn launched(mtm: MainThreadMarker) {
     if s.auto_paste && !permissions::accessibility_ok() {
         permissions::ask_accessibility();
     }
+    // A menu-bar app with no windows open gets App Nap, which can hold the shortcut
+    // back for a second or more. Opt out; an idle Tamka uses no CPU either way.
+    let activity = NSProcessInfo::processInfo().beginActivityWithOptions_reason(
+        NSActivityOptions::UserInitiatedAllowingIdleSystemSleep,
+        &ns("Respond to the dictation shortcut at once"),
+    );
+    std::mem::forget(activity);
+    audio::watch_default_input(audio::prewarm);
+    util::main_after(1.0, audio::prewarm);
     util::log(format!("launched, engine '{}', shortcut {}", s.engine, s.shortcut.label()));
 }
 
@@ -436,10 +451,16 @@ pub fn sound(name: &str) {
     }
 }
 
+/// Called on the hotkey thread the moment the shortcut is pressed.
+pub fn shortcut_pressed() {
+    *PRESSED.lock().unwrap() = Some(Instant::now());
+}
+
 /// The shortcut: start, or finish and paste.
 pub fn toggle() {
+    let asked = PRESSED.lock().unwrap().take().unwrap_or_else(Instant::now);
     match PHASE.with(Cell::get) {
-        Phase::Idle => start(),
+        Phase::Idle => start(asked),
         Phase::Recording => finish(),
         Phase::Transcribing => hud::toast("Still transcribing the last one…", None),
     }
@@ -452,13 +473,15 @@ pub fn cancel() {
     }
     stop_timer();
     hotkey::set_escape(false);
+    log_mic_live();
     audio::cancel();
     set_phase(Phase::Idle);
     hud::toast("Discarded", None);
     util::release_memory_soon();
 }
 
-fn start() {
+fn start(asked: Instant) {
+    let waited = asked.elapsed();
     if models::is_downloaded(&settings::get().engine) == Some(false) {
         hud::notice("Download a speech model first", Some("Pick one in Settings › Models. It takes a minute, once."));
         settings_window::show(Some(settings_window::TAB_MODELS));
@@ -469,7 +492,7 @@ fn start() {
         Mic::NotAsked => {
             permissions::request_mic(|granted| {
                 if granted {
-                    start();
+                    start(Instant::now());
                 }
             });
             return;
@@ -483,16 +506,25 @@ fn start() {
             return;
         }
     }
-    sound(&settings::get().start_sound);
+    let opening = Instant::now();
     match audio::start() {
-        Ok(()) => {
+        Ok(warm) => {
+            let opened = opening.elapsed();
             let s = settings::get();
+            // After the mic is open, so the sound means "go ahead".
+            sound(&s.start_sound);
+            ASKED.with(|a| a.set(Some(asked)));
             MAX_SECONDS.with(|m| m.set(s.max_seconds.max(5) as u64));
             set_phase(Phase::Recording);
             hotkey::set_escape(true);
             hud::show_recording(&s.shortcut.label());
             start_timer();
-            util::log("recording");
+            util::log(format!(
+                "recording: shortcut waited {} ms, mic opened in {} ms{}",
+                waited.as_millis(),
+                opened.as_millis(),
+                if warm { "" } else { " (engine built fresh)" }
+            ));
         }
         Err(e) => {
             util::log(format!("couldn't start recording: {e}"));
@@ -501,9 +533,19 @@ fn start() {
     }
 }
 
+/// Log how long after the shortcut the mic sent its first sound.
+fn log_mic_live() {
+    let Some(asked) = ASKED.with(Cell::take) else { return };
+    match audio::live_after(asked) {
+        Some(d) => util::log(format!("mic was live {} ms after the shortcut", d.as_millis())),
+        None => util::log("mic sent only silence"),
+    }
+}
+
 fn finish() {
     stop_timer();
     hotkey::set_escape(false);
+    log_mic_live();
     let Some(rec) = audio::stop() else {
         set_phase(Phase::Idle);
         return;

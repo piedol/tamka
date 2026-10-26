@@ -2,11 +2,16 @@
 //!
 //! Audio arrives on Core Audio's thread in ~85 ms buffers. Channel 0 is kept as
 //! 16-bit samples at the device's own rate; the engine helper resamples to 16 kHz.
+//!
+//! Building an engine and its input node takes 250 ms or more, so one is kept built
+//! and prepared between recordings (`prewarm`). A prepared engine doesn't open the
+//! mic; only `start` does. It is rebuilt when the default input device changes.
 
 use std::cell::RefCell;
 use std::path::Path;
 use std::ptr::NonNull;
 use std::sync::Mutex;
+use std::ffi::c_void;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::{Duration, Instant};
 
@@ -18,17 +23,113 @@ type TapBlock = RcBlock<dyn Fn(NonNull<AVAudioPCMBuffer>, NonNull<AVAudioTime>)>
 
 struct Active {
     engine: Retained<AVAudioEngine>,
+    device: u32,
     _tap: TapBlock,
     rate: u32,
     started: Instant,
 }
 
+/// A built, prepared engine waiting for the next recording, and the input device it uses.
+struct Warm {
+    engine: Retained<AVAudioEngine>,
+    device: u32,
+}
+
 static SAMPLES: Mutex<Vec<i16>> = Mutex::new(Vec::new());
 /// RMS of the latest buffer (f32 bits), for the recording indicator.
 static LEVEL: AtomicU32 = AtomicU32::new(0);
+/// When the first buffer with any sound in it arrived. Bluetooth mics send silence
+/// while they switch over, so this is when the mic is really listening.
+static LIVE_AT: Mutex<Option<Instant>> = Mutex::new(None);
 
 thread_local! {
     static ACTIVE: RefCell<Option<Active>> = const { RefCell::new(None) };
+    static WARM: RefCell<Option<Warm>> = const { RefCell::new(None) };
+}
+
+#[repr(C)]
+struct PropertyAddress {
+    selector: u32,
+    scope: u32,
+    element: u32,
+}
+
+#[link(name = "CoreAudio", kind = "framework")]
+unsafe extern "C" {
+    fn AudioObjectGetPropertyData(
+        object: u32,
+        address: *const PropertyAddress,
+        qualifier_size: u32,
+        qualifier: *const c_void,
+        size: *mut u32,
+        data: *mut c_void,
+    ) -> i32;
+}
+
+/// The system's default input device (Core Audio id), or 0 if there isn't one.
+fn default_input() -> u32 {
+    // kAudioObjectSystemObject, kAudioHardwarePropertyDefaultInputDevice ('dIn '),
+    // kAudioObjectPropertyScopeGlobal ('glob'), kAudioObjectPropertyElementMain.
+    let address = PropertyAddress { selector: 0x6449_6e20, scope: 0x676c_6f62, element: 0 };
+    let mut id = 0u32;
+    let mut size = std::mem::size_of::<u32>() as u32;
+    let status = unsafe {
+        AudioObjectGetPropertyData(1, &address, 0, std::ptr::null(), &mut size, (&raw mut id).cast())
+    };
+    if status == 0 { id } else { 0 }
+}
+
+#[link(name = "CoreAudio", kind = "framework")]
+unsafe extern "C" {
+    fn AudioObjectAddPropertyListenerBlock(
+        object: u32,
+        address: *const PropertyAddress,
+        queue: *const c_void,
+        listener: *const block2::Block<dyn Fn(u32, *const c_void)>,
+    ) -> i32;
+}
+
+/// Run `f` on the main thread whenever the default input device changes
+/// (AirPods connect, a mic is plugged in), so a matching engine is ready in time.
+pub fn watch_default_input(f: fn()) {
+    let address = PropertyAddress { selector: 0x6449_6e20, scope: 0x676c_6f62, element: 0 };
+    let block = RcBlock::new(move |_: u32, _: *const c_void| crate::util::main_async(f));
+    // A null queue runs the block on Core Audio's own thread; it only hops to main.
+    let status = unsafe { AudioObjectAddPropertyListenerBlock(1, &address, std::ptr::null(), RcBlock::as_ptr(&block)) };
+    if status == 0 {
+        // Core Audio copies the block and keeps it for as long as Tamka runs.
+        std::mem::forget(block);
+    }
+}
+
+fn build(device: u32) -> Warm {
+    let engine = unsafe { AVAudioEngine::new() };
+    unsafe {
+        engine.inputNode();
+        engine.prepare();
+    }
+    Warm { engine, device }
+}
+
+/// Build and prepare an engine now so the next `start` is quick. Cheap if one is ready.
+pub fn prewarm() {
+    if is_recording() {
+        return;
+    }
+    let device = default_input();
+    WARM.with(|w| {
+        let mut w = w.borrow_mut();
+        if w.as_ref().is_none_or(|w| w.device != device) {
+            let t = Instant::now();
+            *w = Some(build(device));
+            crate::util::log(format!("audio engine ready in {} ms", t.elapsed().as_millis()));
+        }
+    });
+}
+
+/// When the mic first sent sound, measured from `since`.
+pub fn live_after(since: Instant) -> Option<Duration> {
+    LIVE_AT.lock().unwrap().map(|t| t.saturating_duration_since(since))
 }
 
 pub struct Recording {
@@ -55,11 +156,15 @@ pub fn level() -> f32 {
     (f32::from_bits(LEVEL.load(Ordering::Relaxed)) * 8.0).min(1.0)
 }
 
-pub fn start() -> Result<(), String> {
+/// Open the mic and start collecting audio. Returns whether a prepared engine was used.
+pub fn start() -> Result<bool, String> {
     if is_recording() {
-        return Ok(());
+        return Ok(true);
     }
-    let engine = unsafe { AVAudioEngine::new() };
+    let device = default_input();
+    let warm = WARM.with(|w| w.borrow_mut().take()).filter(|w| w.device == device);
+    let reused = warm.is_some();
+    let Warm { engine, device } = warm.unwrap_or_else(|| build(device));
     let input = unsafe { engine.inputNode() };
     let format = unsafe { input.outputFormatForBus(0) };
     let rate = unsafe { format.sampleRate() };
@@ -72,6 +177,7 @@ pub fn start() -> Result<(), String> {
         s.reserve(rate as usize * 60);
     }
     LEVEL.store(0, Ordering::Relaxed);
+    *LIVE_AT.lock().unwrap() = None;
 
     let tap: TapBlock = RcBlock::new(|buffer: NonNull<AVAudioPCMBuffer>, _when: NonNull<AVAudioTime>| {
         // SAFETY: AVAudioEngine hands us a valid buffer for the duration of the call.
@@ -101,6 +207,9 @@ pub fn start() -> Result<(), String> {
                 out.push(s);
             }
         }
+        if sum > 0.0 {
+            LIVE_AT.lock().unwrap().get_or_insert_with(Instant::now);
+        }
         LEVEL.store((sum / frames as f32).sqrt().to_bits(), Ordering::Relaxed);
     });
 
@@ -113,9 +222,10 @@ pub fn start() -> Result<(), String> {
         return Err(e.localizedDescription().to_string());
     }
     ACTIVE.with(|a| {
-        *a.borrow_mut() = Some(Active { engine, _tap: tap, rate: rate.round() as u32, started: Instant::now() })
+        *a.borrow_mut() =
+            Some(Active { engine, device, _tap: tap, rate: rate.round() as u32, started: Instant::now() })
     });
-    Ok(())
+    Ok(reused)
 }
 
 /// Stop and return what was recorded.
@@ -124,7 +234,10 @@ pub fn stop() -> Option<Recording> {
     unsafe {
         active.engine.inputNode().removeTapOnBus(0);
         active.engine.stop();
+        active.engine.prepare();
     }
+    // Keep the engine for next time; `start` checks it still matches the input device.
+    WARM.with(|w| *w.borrow_mut() = Some(Warm { engine: active.engine, device: active.device }));
     let samples = std::mem::take(&mut *SAMPLES.lock().unwrap());
     Some(Recording { samples, rate: active.rate })
 }
