@@ -31,8 +31,13 @@ pub struct Settings {
     pub keep_on_clipboard: bool,
     /// Paste into the focused app. When false, the text is only copied.
     pub auto_paste: bool,
-    /// Soft start and stop sounds.
-    pub sounds: bool,
+    /// System sound played when recording starts, by name ("Purr"). Empty = no sound.
+    pub start_sound: String,
+    /// System sound played when recording stops. Empty = no sound.
+    pub stop_sound: String,
+    /// The old on/off switch for both sounds, read once and turned into the two above.
+    #[serde(rename = "sounds", skip_serializing)]
+    legacy_sounds: Option<bool>,
     /// Drop "um", "uh" and similar.
     pub remove_fillers: bool,
     /// Collapse stutters like "the the" or "at the at the".
@@ -54,7 +59,9 @@ impl Default for Settings {
             numbers_as_digits: false,
             keep_on_clipboard: true,
             auto_paste: true,
-            sounds: true,
+            start_sound: "Purr".into(),
+            stop_sound: "Pop".into(),
+            legacy_sounds: None,
             remove_fillers: true,
             collapse_repeats: true,
             max_seconds: 600,
@@ -120,13 +127,27 @@ fn migrate_old_settings() {
     }
 }
 
+/// Sounds switched off with the old checkbox stay off.
+fn migrate_sounds(s: &mut Settings) {
+    if s.legacy_sounds.take() == Some(false) {
+        s.start_sound.clear();
+        s.stop_sound.clear();
+    }
+}
+
 fn load() -> Settings {
     migrate_old_settings();
     match std::fs::read_to_string(path()) {
-        Ok(text) => serde_json::from_str(&text).unwrap_or_else(|e| {
-            crate::util::log(format!("settings.json didn't parse ({e}); using defaults"));
-            Settings::default()
-        }),
+        Ok(text) => match serde_json::from_str::<Settings>(&text) {
+            Ok(mut s) => {
+                migrate_sounds(&mut s);
+                s
+            }
+            Err(e) => {
+                crate::util::log(format!("settings.json didn't parse ({e}); using defaults"));
+                Settings::default()
+            }
+        },
         Err(_) => {
             let s = Settings::default();
             save(&s);
@@ -165,5 +186,16 @@ mod tests {
         let text = serde_json::to_string(&s).unwrap();
         let back: Settings = serde_json::from_str(&text).unwrap();
         assert_eq!(back.find_replace, s.find_replace);
+    }
+
+    #[test]
+    fn old_sounds_switch_carries_over() {
+        let mut off: Settings = serde_json::from_str(r#"{"sounds": false}"#).unwrap();
+        migrate_sounds(&mut off);
+        assert_eq!((off.start_sound.as_str(), off.stop_sound.as_str()), ("", ""));
+        let mut on: Settings = serde_json::from_str(r#"{"sounds": true}"#).unwrap();
+        migrate_sounds(&mut on);
+        assert_eq!((on.start_sound.as_str(), on.stop_sound.as_str()), ("Purr", "Pop"));
+        assert!(!serde_json::to_string(&on).unwrap().contains("\"sounds\""));
     }
 }

@@ -425,8 +425,9 @@ fn set_phase(p: Phase) {
     refresh_icon();
 }
 
-fn sound(name: &str) {
-    if !settings::get().sounds {
+/// Play a system sound by name. An empty name plays nothing.
+pub fn sound(name: &str) {
+    if name.is_empty() {
         return;
     }
     if let Some(s) = NSSound::soundNamed(&ns(name)) {
@@ -482,7 +483,7 @@ fn start() {
             return;
         }
     }
-    sound("Tink");
+    sound(&settings::get().start_sound);
     match audio::start() {
         Ok(()) => {
             let s = settings::get();
@@ -507,7 +508,7 @@ fn finish() {
         set_phase(Phase::Idle);
         return;
     };
-    sound("Pop");
+    sound(&settings::get().stop_sound);
     if rec.seconds() < MIN_SECONDS {
         set_phase(Phase::Idle);
         hud::notice("Too short to transcribe", None);

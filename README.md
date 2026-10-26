@@ -126,9 +126,9 @@ In **Settings › Text** you can:
 </p>
 
 - **Shortcut:** click the button, then press the keys you want.
-- **Recording:** set a time limit, after which Tamka types what it has.
+- **Recording:** set a time limit, after which Tamka types what it has, and pick the start and stop sounds (or none).
 - **Indicator:** reset the indicator to the bottom centre of the screen.
-- **After dictating:** choose whether Tamka pastes for you, keeps the text on the clipboard and plays its sounds.
+- **After dictating:** choose whether Tamka pastes for you and keeps the text on the clipboard.
 - **Startup:** launch Tamka at login.
 - **Permissions:** see the microphone and Accessibility status, with a button to fix either one.
 - **Troubleshooting:** open the activity log.

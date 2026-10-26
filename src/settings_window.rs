@@ -35,7 +35,6 @@ use crate::{app, engine, hotkey, ui};
 const KEY: isize = 1;
 const AUTO_PASTE: isize = 2;
 const KEEP_CLIP: isize = 3;
-const SOUNDS: isize = 4;
 const LOGIN: isize = 5;
 const MIC_FIX: isize = 6;
 const AX_FIX: isize = 7;
@@ -45,6 +44,8 @@ const FILLERS: isize = 21;
 const REPEATS: isize = 22;
 const DIGITS: isize = 23;
 const LIMIT: isize = 24;
+const START_SOUND: isize = 25;
+const STOP_SOUND: isize = 26;
 const ADD_REMOVE: isize = 30;
 const RESTORE: isize = 31;
 /// Model rows: MODEL_USE + index (radio), MODEL_ACTION + index (Download / Remove / Cancel).
@@ -56,6 +57,24 @@ const CELL: isize = 10_000;
 pub const TAB_GENERAL: isize = 0;
 pub const TAB_MODELS: isize = 1;
 pub const TAB_TEXT: isize = 2;
+
+/// Sound choices: "None", then the macOS system sounds. Tink is left out because it is
+/// the default alert sound, so it sounds like an error.
+const SOUND_NAMES: &[&str] = &[
+    "None", "Purr", "Pop", "Bottle", "Morse", "Frog", "Blow", "Glass", "Ping", "Submarine", "Hero", "Funk", "Basso",
+    "Sosumi",
+];
+
+fn sound_index(name: &str) -> usize {
+    if name.is_empty() {
+        return 0;
+    }
+    SOUND_NAMES.iter().position(|n| *n == name).unwrap_or(0)
+}
+
+fn sound_name(i: usize) -> String {
+    if i == 0 { String::new() } else { SOUND_NAMES.get(i).map_or(String::new(), |n| n.to_string()) }
+}
 
 const LIMITS: &[(u32, &str)] = &[
     (60, "1 minute"),
@@ -69,7 +88,7 @@ const LIMITS: &[(u32, &str)] = &[
 const LABEL_W: f64 = 150.0;
 const X: f64 = 24.0;
 const WIN_W: f64 = 600.0;
-const WIN_H: f64 = 700.0;
+const WIN_H: f64 = 740.0;
 
 define_class!(
     // SAFETY: NSView subclass that only flips its coordinate system.
@@ -457,6 +476,12 @@ pub fn show(tab: Option<isize>) {
     g.row("Stop after:", &limit, Some(140.0), 25.0);
     controls.insert(LIMIT, as_view(&limit));
     g.note("Listening stops and the text is typed when a dictation reaches this length.");
+    for (label, tag, name) in [("Start sound:", START_SOUND, &s.start_sound), ("Stop sound:", STOP_SOUND, &s.stop_sound)] {
+        let p = popup(SOUND_NAMES, sound_index(name), tag, &controller);
+        g.row(label, &p, Some(140.0), 25.0);
+        controls.insert(tag, as_view(&p));
+    }
+    g.note("Pick a sound to hear it. None keeps that moment silent.");
     let reset = push_button("Reset Position", RESET_INDICATOR, &controller);
     reset.setToolTip(Some(&ns("Put the listening indicator back at the bottom centre of the screen")));
     g.row("Indicator:", &reset, Some(140.0), 26.0);
@@ -466,7 +491,6 @@ pub fn show(tab: Option<isize>) {
     for (title, tag, on) in [
         ("Paste into the app you're typing in", AUTO_PASTE, s.auto_paste),
         ("Leave the text on the clipboard", KEEP_CLIP, s.keep_on_clipboard),
-        ("Play start and stop sounds", SOUNDS, s.sounds),
     ] {
         let c = checkbox(title, tag, on, &controller);
         g.plain(&c, 20.0);
@@ -757,9 +781,10 @@ fn changed(id: isize) {
             let on = is_on(id);
             settings::update(|s| s.keep_on_clipboard = on);
         }
-        SOUNDS => {
-            let on = is_on(id);
-            settings::update(|s| s.sounds = on);
+        START_SOUND | STOP_SOUND => {
+            let name = sound_name(selected(id));
+            app::sound(&name);
+            settings::update(|s| if id == START_SOUND { s.start_sound = name } else { s.stop_sound = name });
         }
         LOGIN => {
             if let Err(e) = app::set_login_item(is_on(id)) {
