@@ -10,7 +10,7 @@ use std::sync::Mutex;
 use crate::{engine, util};
 
 /// A model the user can download, with grades a non-expert can read at a glance.
-/// Grades come from the benchmark in docs/benchmark-public.md (117 public clips,
+/// Grades come from the benchmark in docs/benchmark.md (117 public clips,
 /// M5 Max): Size = download and memory, Speed = time from the end of speech to
 /// text, Accuracy = word errors on everyday speech.
 pub struct Model {

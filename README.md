@@ -9,8 +9,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/macOS-26%2B-1c1c1e?logo=apple" alt="macOS 26 or later">
-  <img src="https://img.shields.io/badge/Apple%20silicon-required-1c1c1e" alt="Apple silicon required">
+  <img src="https://img.shields.io/badge/macOS-26%2B%20·%20Apple%20silicon-1c1c1e?logo=apple" alt="macOS 26 or later on Apple silicon">
   <a href="LICENSE.md"><img src="https://img.shields.io/badge/license-PolyForm%20Noncommercial-1c1c1e" alt="License: PolyForm Noncommercial 1.0.0"></a>
 </p>
 
@@ -18,9 +17,9 @@
   <img src="docs/images/showcase.png" width="880" alt="Tamka's Models settings, its menu with recent dictations, and the listening indicator">
 </p>
 
-Press a shortcut, speak, and press it again: Tamka types what you said wherever your cursor is. Speech recognition runs on your Mac's Neural Engine with NVIDIA's Parakeet models, so your voice never leaves the computer, and text appears about 0.2 seconds after you stop, even after 50 seconds of speech.
+Tamka types what you say into any app on your Mac. Press a shortcut, speak, then press the shortcut again, and the text appears at your cursor. Speech recognition runs on the Neural Engine with NVIDIA's Parakeet models, so your voice never leaves the computer. On a MacBook Pro with an M5 Max, the text arrives about 0.2 seconds after you stop, even after 50 seconds of speech.
 
-Tamka removes "um" and "uh", collapses stutters, and turns spoken commands such as "comma", "new line" or "open paren" into the real thing. It lives in the menu bar and uses about 80 MB for the app and its speech engine, plus the model you choose.
+Before typing, Tamka removes "um" and "uh", collapses stutters, and turns spoken commands such as "comma", "new line" or "open paren" into the characters they name. With Parakeet Ultra loaded, it uses about 0.5 GB of memory, most of it model weights held by the Neural Engine.
 
 <p align="center"><sub><em>Tamka</em> (TAHM-kah) is Swahili for "to pronounce" or "to utter".</sub></p>
 
@@ -30,7 +29,7 @@ Tamka removes "um" and "uh", collapses stutters, and turns spoken commands such 
 - [Features](#features)
 - [Privacy](#privacy)
 - [Accuracy and speed](#accuracy-and-speed)
-- [Install](#install)
+- [Install](#install) · [Uninstall](#uninstall)
 - [Troubleshooting](#troubleshooting)
 - [Development](#development)
 - [Credits](#credits) · [License](#license)
@@ -53,11 +52,11 @@ Press **Esc** while Tamka is listening to throw the recording away.
 
 ## Features
 
-### An indicator you can move
+### The indicator
 
-The indicator never takes focus from the app you're typing in. Drag it anywhere, including onto another display, and Tamka puts it in the same place for every dictation after that. If that display is disconnected, the indicator returns to the bottom centre of the main screen. **Settings › General › Indicator › Reset Position** moves it back there yourself.
+The indicator never takes focus from the app you're typing in. Drag it anywhere, including onto another display, and it appears in the same place for every dictation after that. If that display is disconnected, the indicator goes back to the bottom centre of the screen with the pointer. To put it there yourself, click **Reset Position** in Settings › General.
 
-### Recent dictations
+### The menu
 
 The menu bar menu shows your last five dictations. Click one to copy it again.
 
@@ -68,32 +67,28 @@ The menu bar menu shows your last five dictations. Click one to copy it again.
 
 - **Start Dictation** becomes **Stop and Paste** while you're speaking.
 - **Transcribe Last Recording Again** runs your last recording through the current model, which is useful after switching models.
-- Problems that need attention, such as a missing permission or a model that hasn't been downloaded, appear in the menu with a button to fix them.
+- Problems such as a missing permission or a model that hasn't been downloaded appear as menu items that open the fix.
 - The menu bar icon turns red while Tamka is listening.
 
 Recent dictations are kept in memory only and are gone when Tamka quits.
 
-### Speech models with letter grades
+### Speech models
 
-Tamka doesn't include a speech model, which keeps the app small. On first launch, **Settings › Models** opens with one model marked **Recommended**. Each model downloads once and then works offline.
-
-<p align="center">
-  <img src="docs/images/settings-models.png" width="520" alt="Settings, Models tab: five models graded on size, speed and accuracy">
-</p>
+Tamka doesn't include a speech model, which keeps the app small. On first launch, **Settings › Models** opens with one model marked **Recommended**. Each model downloads once and then works offline, and a model you remove goes to the Trash.
 
 | Model | Size | Speed | Accuracy | Best for |
 |---|:-:|:-:|:-:|---|
-| **Parakeet Ultra** (recommended) | B | A | A | Everyday dictation; the most accurate, with the best punctuation |
+| **Parakeet Ultra** (recommended) | B | A | A | Everyday dictation, with the best punctuation |
 | Parakeet Phonon-2 | A | A | A− | Casual, unscripted speech |
 | Parakeet v3 | A | A | A− | Speaking any of 25 European languages |
 | Parakeet v2 | A | A+ | B+ | The fastest results |
-| Apple Speech | A+ | B | B | Nothing extra to download |
+| Apple Speech | A+ | B | B | No separate model download; macOS may fetch its language files first |
 
-Size covers the download and the memory the model uses while loaded. Speed is how soon text appears after you stop speaking. Accuracy is how few words the model gets wrong. Hover over a grade in the app to see the measurements behind it. Removed models go to the Trash.
+Size covers the download and the memory the model uses while loaded. Speed is how soon text appears after you stop speaking. Accuracy is the word error rate on everyday speech, measured on the benchmark's clips without its meeting recordings. Hover over a grade in the app to see the measurements behind it.
 
 ### Text cleanup and spoken commands
 
-Tamka tidies the text before typing it. Say a command and it types the symbol with the spacing fixed: "call foo open paren bar close paren" becomes `call foo (bar)`.
+Say a command and Tamka types the symbol with the spacing fixed: "call foo open paren bar close paren" becomes `call foo (bar)`.
 
 | Say | Get | Say | Get |
 |---|:-:|---|:-:|
@@ -121,14 +116,14 @@ In **Settings › Text** you can turn filler removal and stutter cleanup on or o
 
 ## Privacy
 
-- Speech recognition runs entirely on your Mac. Tamka connects to the internet only to download a model: Parakeet models come from Hugging Face, and Apple Speech comes from Apple.
+- Speech recognition runs entirely on your Mac. Tamka connects to the internet only to download a model: Parakeet models come from Hugging Face, and Apple Speech's language files come from Apple.
 - The microphone is on only between your two shortcut presses.
 - Tamka keeps one recording, so it can transcribe it again: `~/Library/Caches/Tamka/last.wav`. Each new dictation replaces it.
 - The log at `~/Library/Logs/Tamka.log` records events and timings, never your words.
 
 ## Accuracy and speed
 
-Parakeet Ultra was tested against Whisper large-v3-turbo on 117 public recordings (32 minutes) of read speech, meetings and earnings calls with human-checked transcripts:
+Parakeet Ultra was tested against Whisper large-v3-turbo on 117 public recordings (32 minutes) of read speech, meetings and earnings calls with human-checked transcripts, on a MacBook Pro with an M5 Max:
 
 | | Whisper large-v3-turbo | Tamka with Parakeet Ultra |
 |---|:-:|:-:|
@@ -137,13 +132,13 @@ Parakeet Ultra was tested against Whisper large-v3-turbo on 117 public recording
 | Memory | 1.2–1.6 GB | **about 0.5 GB** |
 | Wait after a 50-second dictation | 471 ms | **170 ms** |
 
-The [full benchmark](docs/benchmark.md) covers 13 configurations across five model families. To compare models on your own voice and vocabulary, see [eval/README.md](eval/README.md).
+Without the meeting recordings, the difference in accuracy is within the margin of error. The [full benchmark](docs/benchmark.md) compares 11 model configurations. To compare models on your own voice and vocabulary, see [eval/README.md](eval/README.md).
 
 ## Install
 
-Tamka is built from source. You need:
+There's no prebuilt download yet, so Tamka is built from source. You need:
 
-- a Mac with Apple silicon and macOS 26 or later;
+- a Mac with Apple silicon and macOS 26 or later (the Apple Speech engine uses SpeechAnalyzer, which is new in macOS 26);
 - Xcode 26 or later;
 - a current stable Rust toolchain from [rustup](https://rustup.rs).
 
@@ -155,15 +150,23 @@ git clone https://github.com/piedol/tamka.git
 cd tamka && scripts/bundle.sh --install
 ```
 
-The script builds the app and its speech engine, signs both, copies `Tamka.app` to `/Applications` and opens it. It signs with the first Developer ID Application certificate in your keychain, or the identity in `TAMKA_SIGN_IDENTITY`. Without either, it uses an ad-hoc signature, and macOS asks for permissions again after every build.
+The script builds the app and its speech engine, signs both, copies `Tamka.app` to `/Applications` and opens it. It signs with `TAMKA_SIGN_IDENTITY` if that's set, or else with the first Developer ID Application certificate in your keychain. Without either, it uses an ad-hoc signature, and macOS asks for permissions again after every build.
 
-On first launch:
+When Tamka first opens:
 
-1. **Download a model.** Settings › Models opens by itself. Click **Download** next to **Parakeet Ultra**. It takes a minute or two, once.
-2. **Allow Accessibility,** which Tamka needs to paste for you. Without it, Tamka copies the text and you paste it yourself.
-3. **Allow the microphone** the first time you dictate.
+1. Settings › Models opens by itself. Click **Download** next to Parakeet Ultra (632 MB, once).
+2. Allow Accessibility so Tamka can paste for you. Without it, Tamka copies the text and you paste it yourself.
+3. Allow the microphone the first time you dictate.
 
 Tamka has no Dock icon. To start it when you log in, turn on **Launch Tamka at login** in Settings › General.
+
+### Uninstall
+
+1. Turn off **Launch Tamka at login** in Settings › General, then choose **Quit Tamka** from the menu.
+2. Move `/Applications/Tamka.app` to the Trash.
+3. Move these to the Trash: `~/Library/Application Support/Tamka`, `~/Library/Caches/Tamka` and `~/Library/Logs/Tamka.log`.
+4. Downloaded models are in `~/Library/Application Support/FluidAudio/Models` (about 0.4–0.6 GB each). Other apps built on FluidAudio may share that folder, so remove only the models you no longer want.
+5. Remove Tamka from System Settings › Privacy & Security › Accessibility and Microphone.
 
 ## Troubleshooting
 
@@ -209,6 +212,10 @@ open "tamka://hud-demo"                       # show the indicator's states
 swift scripts/make-showcase.swift             # redraw docs/images/showcase.png from the screenshots
 ```
 
+### Contributing
+
+Bug reports and pull requests are welcome. Before opening a pull request, run `cargo clippy --all-targets -- -D warnings` and `cargo test --release`.
+
 ## Credits
 
 - Speech runtime: [FluidAudio](https://github.com/FluidInference/FluidAudio) (Apache-2.0).
@@ -217,4 +224,4 @@ swift scripts/make-showcase.swift             # redraw docs/images/showcase.png 
 
 ## License
 
-[PolyForm Noncommercial 1.0.0](LICENSE.md). You may use, change and share Tamka for any noncommercial purpose.
+Tamka is source-available under the [PolyForm Noncommercial License 1.0.0](LICENSE.md). You may use, change and share it for any noncommercial purpose. Commercial use needs a separate license; open an issue to ask about one. Anyone who shares Tamka or a fork must include the license and its Required Notice.

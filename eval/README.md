@@ -58,7 +58,7 @@ cd eval && ./record.sh 07-client-email
 
 To record from another microphone, set `MIC` to its name: `MIC="AirPods Pro" ./record.sh 08-headset`. The first run asks for microphone access for your terminal app. Recordings from Voice Memos or QuickTime work too: put the file in `clips/` and add the matching `.txt`.
 
-`clips/` is git-ignored, so your recordings never end up in a repository.
+`clips/` is git-ignored, so your recordings aren't committed.
 
 ### Writing the transcripts
 
