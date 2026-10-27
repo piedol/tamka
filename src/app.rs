@@ -186,8 +186,8 @@ fn build_status_item(mtm: MainThreadMarker) {
 }
 
 /// The menu-bar icon while recording: the waveform in recording red.
-fn red_waveform() -> Option<Retained<objc2_app_kit::NSImage>> {
-    let img = ui::symbol("waveform", 0.0)?;
+fn red_glyph() -> Option<Retained<objc2_app_kit::NSImage>> {
+    let img = ui::symbol("mic.fill", 0.0)?;
     let colors = NSArray::from_retained_slice(&[NSColor::systemRedColor()]);
     let cfg = NSImageSymbolConfiguration::configurationWithPaletteColors(&colors);
     Some(img.imageWithSymbolConfiguration(&cfg).unwrap_or(img))
@@ -201,7 +201,7 @@ fn refresh_icon() {
         let sh = sh.borrow();
         let Some(sh) = sh.as_ref() else { return };
         let Some(button) = sh.item.button(mtm) else { return };
-        // Tamka's own glyph (waveform + caret, from the logo) as a template image:
+        // Tamka's own glyph (a microphone and a caret) as a template image:
         // tinted red while listening, dimmed while transcribing. Falls back to the
         // SF Symbol when run outside the app bundle.
         if let Some(glyph) = objc2_app_kit::NSImage::imageNamed(&ns("MenuIcon")) {
@@ -211,9 +211,9 @@ fn refresh_icon() {
             button.setAppearsDisabled(phase == Phase::Transcribing);
         } else {
             let img = match phase {
-                Phase::Recording => red_waveform().inspect(|i| i.setTemplate(false)),
+                Phase::Recording => red_glyph().inspect(|i| i.setTemplate(false)),
                 Phase::Transcribing => ui::symbol("ellipsis", 0.0).inspect(|i| i.setTemplate(true)),
-                Phase::Idle => ui::symbol("waveform", 0.0).inspect(|i| i.setTemplate(true)),
+                Phase::Idle => ui::symbol("mic.fill", 0.0).inspect(|i| i.setTemplate(true)),
             };
             button.setImage(img.as_deref());
         }

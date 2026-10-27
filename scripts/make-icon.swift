@@ -56,9 +56,9 @@ func draw(_ px: CGFloat) -> NSBitmapImageRep {
     return rep
 }
 
-/// The menu-bar glyph: the same bars and caret as a monochrome template image
-/// (18pt tall), so macOS tints it for light and dark menu bars and Tamka can tint
-/// it red while recording.
+/// The menu-bar glyph: a microphone and the caret its words appear at, as a monochrome
+/// template image (22 x 18 pt), so macOS tints it for light and dark menu bars and Tamka
+/// can tint it red while recording.
 func menuGlyph(scale: CGFloat) -> NSBitmapImageRep {
     let (w, h): (CGFloat, CGFloat) = (22, 18)
     let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(w * scale), pixelsHigh: Int(h * scale),
@@ -67,15 +67,29 @@ func menuGlyph(scale: CGFloat) -> NSBitmapImageRep {
     rep.size = NSSize(width: w, height: h)
     NSGraphicsContext.saveGraphicsState()
     NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
+    // The rep's size already maps points to its pixels, so drawing is in points at any scale.
     let ctx = NSGraphicsContext.current!.cgContext
-    ctx.scaleBy(x: scale, y: scale)
     ctx.setFillColor(NSColor.black.cgColor)
-    let barW: CGFloat = 2.2
-    for (x, bh) in [(3.0, 6.0), (6.6, 11.0), (10.2, 14.0), (13.8, 8.0)] as [(CGFloat, CGFloat)] {
-        let r = CGRect(x: x - barW / 2, y: (h - bh) / 2, width: barW, height: bh)
-        ctx.addPath(CGPath(roundedRect: r, cornerWidth: barW / 2, cornerHeight: barW / 2, transform: nil))
-    }
-    let caret = CGRect(x: 18.6 - 0.9, y: 1, width: 1.8, height: 16)
+    ctx.setStrokeColor(NSColor.black.cgColor)
+    // The microphone: a filled capsule, the holder around its base, the stem and the foot.
+    let (cx, capW, capH, capBottom, line): (CGFloat, CGFloat, CGFloat, CGFloat, CGFloat) = (8, 5.6, 9.2, 7.2, 1.5)
+    let cap = CGRect(x: cx - capW / 2, y: capBottom, width: capW, height: capH)
+    ctx.addPath(CGPath(roundedRect: cap, cornerWidth: capW / 2, cornerHeight: capW / 2, transform: nil))
+    ctx.fillPath()
+    ctx.setLineWidth(line)
+    ctx.setLineCap(.round)
+    let r = capW / 2 + 2.3, arcY = capBottom + 2.6
+    ctx.move(to: CGPoint(x: cx - r, y: arcY + 1.6))
+    ctx.addLine(to: CGPoint(x: cx - r, y: arcY))
+    ctx.addArc(center: CGPoint(x: cx, y: arcY), radius: r, startAngle: .pi, endAngle: 0, clockwise: false)
+    ctx.addLine(to: CGPoint(x: cx + r, y: arcY + 1.6))
+    ctx.move(to: CGPoint(x: cx, y: arcY - r))
+    ctx.addLine(to: CGPoint(x: cx, y: 1.2))
+    ctx.move(to: CGPoint(x: cx - 2.6, y: 1.2))
+    ctx.addLine(to: CGPoint(x: cx + 2.6, y: 1.2))
+    ctx.strokePath()
+    // The caret.
+    let caret = CGRect(x: 17.5 - 0.9, y: 4.5, width: 1.8, height: 12.1)
     ctx.addPath(CGPath(roundedRect: caret, cornerWidth: 0.9, cornerHeight: 0.9, transform: nil))
     ctx.fillPath()
     NSGraphicsContext.restoreGraphicsState()
