@@ -1,51 +1,28 @@
-//! Microphone capture with AVAudioEngine. The mic is open only while recording.
+//! Microphone capture through Core Audio's HAL input unit. The mic is open only while recording.
 //!
 //! Tamka records from the microphone chosen in Settings while it's connected, and from
-//! the system default input otherwise.
+//! the system default input otherwise. The unit only does input, so a mic and a different
+//! output device (a USB receiver while AirPods play) never get joined into an aggregate
+//! device; AVAudioEngine did that, and the aggregate delivered silence.
 //!
-//! Audio arrives on Core Audio's thread in ~85 ms buffers. The channels are mixed to one
-//! and kept as 16-bit samples at the device's own rate; the engine helper resamples to 16 kHz.
+//! Audio arrives on Core Audio's thread in small buffers. The channels are mixed to one and
+//! kept as 16-bit samples at the device's own rate; the engine helper resamples to 16 kHz.
 //!
-//! Building an engine and its input node takes 250 ms or more, so one is kept built
-//! and prepared between recordings (`prewarm`). A prepared engine doesn't open the
-//! mic; only `start` does. It is rebuilt when the input device changes.
+//! A unit is kept built and initialized between recordings (`prewarm`), which doesn't open
+//! the mic; only `start` does. It is rebuilt when the input device changes.
 
 use std::cell::{Cell, RefCell};
 use std::ffi::c_void;
-use std::panic::AssertUnwindSafe;
 use std::path::Path;
 use std::ptr::NonNull;
 use std::sync::Mutex;
-use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::time::{Duration, Instant};
 
 use block2::RcBlock;
-use objc2::rc::Retained;
-use objc2::runtime::ProtocolObject;
-use objc2::msg_send;
-use objc2_avf_audio::{AVAudioEngine, AVAudioPCMBuffer, AVAudioTime};
 use objc2_core_foundation::{CFRetained, CFString};
-use objc2_foundation::{NSNotification, NSNotificationCenter, NSObjectProtocol, NSOperationQueue, NSString};
 
 use crate::settings;
-
-type TapBlock = RcBlock<dyn Fn(NonNull<AVAudioPCMBuffer>, NonNull<AVAudioTime>)>;
-
-struct Active {
-    engine: Retained<AVAudioEngine>,
-    device: u32,
-    _tap: TapBlock,
-    /// Watches for the engine stopping itself because its device went away or changed format.
-    observer: Retained<ProtocolObject<dyn NSObjectProtocol>>,
-    rate: u32,
-    started: Instant,
-}
-
-/// A built, prepared engine waiting for the next recording, and the input device it uses.
-struct Warm {
-    engine: Retained<AVAudioEngine>,
-    device: u32,
-}
 
 static SAMPLES: Mutex<Vec<i16>> = Mutex::new(Vec::new());
 /// RMS of the latest buffer (f32 bits), for the recording indicator.
@@ -53,18 +30,22 @@ static LEVEL: AtomicU32 = AtomicU32::new(0);
 /// When the first buffer with any sound in it arrived. Bluetooth mics send silence
 /// while they switch over, so this is when the mic is really listening.
 static LIVE_AT: Mutex<Option<Instant>> = Mutex::new(None);
+/// Set once when the input fails mid-recording, so the main thread hears about it once.
+static FAILED: AtomicBool = AtomicBool::new(false);
 
 thread_local! {
     static ACTIVE: RefCell<Option<Active>> = const { RefCell::new(None) };
-    static WARM: RefCell<Option<Warm>> = const { RefCell::new(None) };
-    /// Set when the recording engine stopped itself; that engine isn't reused.
+    static WARM: RefCell<Option<Unit>> = const { RefCell::new(None) };
+    /// Set when the recording's device went away or failed; that unit isn't reused.
     static CHANGED: Cell<bool> = const { Cell::new(false) };
-    /// Engines set aside and released a little later (see `retire`).
-    static RETIRED: RefCell<Vec<(Instant, Retained<AVAudioEngine>)>> = const { RefCell::new(Vec::new()) };
 }
 
-/// How long a retired engine is kept before it's released.
-const LINGER: Duration = Duration::from_secs(10);
+struct Active {
+    unit: Unit,
+    /// Calls `lost` if the device disconnects.
+    alive: Option<Listener>,
+    started: Instant,
+}
 
 // Core Audio property selectors and scopes (four-character codes).
 const SYSTEM_OBJECT: u32 = 1;
@@ -76,8 +57,29 @@ const STREAMS: u32 = 0x7374_6d23; // 'stm#'
 const IS_HIDDEN: u32 = 0x6869_646e; // 'hidn'
 const SCOPE_GLOBAL: u32 = 0x676c_6f62; // 'glob'
 const SCOPE_INPUT: u32 = 0x696e_7074; // 'inpt'
-/// kAudioOutputUnitProperty_CurrentDevice: which device an input node's I/O unit records from.
+
+const IS_ALIVE: u32 = 0x6c69_766e; // 'livn'
+
+// The HAL output unit ('auou' 'ahal' 'appl'), used for input only.
+const AU_TYPE_OUTPUT: u32 = 0x6175_6f75;
+const AU_SUBTYPE_HAL: u32 = 0x6168_616c;
+const AU_APPLE: u32 = 0x6170_706c;
+const AU_ENABLE_IO: u32 = 2003;
 const AU_CURRENT_DEVICE: u32 = 2000;
+const AU_INPUT_CALLBACK: u32 = 2005;
+const AU_STREAM_FORMAT: u32 = 8;
+const AU_MAX_FRAMES: u32 = 14;
+const AU_SCOPE_GLOBAL: u32 = 0;
+const AU_SCOPE_INPUT: u32 = 1;
+const AU_SCOPE_OUTPUT: u32 = 2;
+/// Element 1 is the input side of the unit, element 0 the output side.
+const AU_INPUT: u32 = 1;
+const AU_OUTPUT: u32 = 0;
+const LINEAR_PCM: u32 = 0x6c70_636d; // 'lpcm'
+/// kAudioFormatFlagIsFloat | IsPacked | IsNonInterleaved.
+const FLOAT_NON_INTERLEAVED: u32 = 1 | 8 | 32;
+/// Channels mixed from a device; more than this and the rest are left out.
+const MAX_CHANNELS: usize = 8;
 
 #[repr(C)]
 struct PropertyAddress {
@@ -109,26 +111,6 @@ unsafe extern "C" {
         queue: *const c_void,
         listener: *const block2::Block<dyn Fn(u32, *const c_void)>,
     ) -> i32;
-}
-
-#[link(name = "AudioToolbox", kind = "framework")]
-unsafe extern "C" {
-    fn AudioUnitSetProperty(unit: *mut c_void, id: u32, scope: u32, element: u32, data: *const c_void, size: u32)
-    -> i32;
-}
-
-/// An AudioUnit, as `-[AVAudioIONode audioUnit]` returns it.
-#[repr(C)]
-struct AudioUnitRecord {
-    _private: [u8; 0],
-}
-
-// SAFETY: matches the method's declared return type, `^{ComponentInstanceRecord=[1q]}`.
-unsafe impl objc2::encode::RefEncode for AudioUnitRecord {
-    const ENCODING_REF: objc2::encode::Encoding = objc2::encode::Encoding::Pointer(&objc2::encode::Encoding::Struct(
-        "ComponentInstanceRecord",
-        &[objc2::encode::Encoding::Array(1, &objc2::encode::Encoding::LongLong)],
-    ));
 }
 
 fn address(selector: u32, scope: u32) -> PropertyAddress {
@@ -273,65 +255,361 @@ pub fn watch_inputs(f: fn()) {
     }
 }
 
-fn build(device: u32) -> Warm {
-    let engine = unsafe { AVAudioEngine::new() };
-    // A device that is coming or going can make AVAudioEngine raise; `open` then retries.
-    let built = objc2::exception::catch(AssertUnwindSafe(|| unsafe {
-        let input = engine.inputNode();
-        if device != 0 {
-            let unit: *mut AudioUnitRecord = msg_send![&*input, audioUnit];
-            if !unit.is_null() {
-                let status =
-                    AudioUnitSetProperty(unit.cast(), AU_CURRENT_DEVICE, 0, 0, (&raw const device).cast(), 4);
-                if status != 0 {
-                    crate::util::log(format!("couldn't select input device {device}: error {status}"));
-                }
-            }
-        }
-        engine.prepare();
-    }));
-    if let Err(e) = built {
-        crate::util::log(format!("couldn't prepare the audio engine: {e:?}"));
+#[repr(C)]
+#[derive(Clone, Copy, Default)]
+struct StreamFormat {
+    sample_rate: f64,
+    format_id: u32,
+    format_flags: u32,
+    bytes_per_packet: u32,
+    frames_per_packet: u32,
+    bytes_per_frame: u32,
+    channels_per_frame: u32,
+    bits_per_channel: u32,
+    reserved: u32,
+}
+
+#[repr(C)]
+struct ComponentDescription {
+    kind: u32,
+    sub_kind: u32,
+    manufacturer: u32,
+    flags: u32,
+    flags_mask: u32,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+struct AudioBuffer {
+    channels: u32,
+    bytes: u32,
+    data: *mut c_void,
+}
+
+#[repr(C)]
+struct BufferList {
+    count: u32,
+    buffers: [AudioBuffer; MAX_CHANNELS],
+}
+
+type InputProc = unsafe extern "C" fn(*mut c_void, *mut u32, *const c_void, u32, u32, *mut BufferList) -> i32;
+
+#[repr(C)]
+struct RenderCallback {
+    input: InputProc,
+    refcon: *mut c_void,
+}
+
+#[link(name = "AudioToolbox", kind = "framework")]
+unsafe extern "C" {
+    fn AudioComponentFindNext(after: *mut c_void, description: *const ComponentDescription) -> *mut c_void;
+    fn AudioComponentInstanceNew(component: *mut c_void, unit: *mut *mut c_void) -> i32;
+    fn AudioComponentInstanceDispose(unit: *mut c_void) -> i32;
+    fn AudioUnitSetProperty(unit: *mut c_void, id: u32, scope: u32, element: u32, data: *const c_void, size: u32)
+    -> i32;
+    fn AudioUnitGetProperty(unit: *mut c_void, id: u32, scope: u32, element: u32, data: *mut c_void, size: *mut u32)
+    -> i32;
+    fn AudioUnitInitialize(unit: *mut c_void) -> i32;
+    fn AudioUnitUninitialize(unit: *mut c_void) -> i32;
+    fn AudioOutputUnitStart(unit: *mut c_void) -> i32;
+    fn AudioOutputUnitStop(unit: *mut c_void) -> i32;
+    fn AudioUnitRender(
+        unit: *mut c_void,
+        flags: *mut u32,
+        time: *const c_void,
+        bus: u32,
+        frames: u32,
+        data: *mut BufferList,
+    ) -> i32;
+}
+
+#[link(name = "CoreAudio", kind = "framework")]
+unsafe extern "C" {
+    fn AudioObjectRemovePropertyListenerBlock(
+        object: u32,
+        address: *const PropertyAddress,
+        queue: *const c_void,
+        listener: *const block2::Block<dyn Fn(u32, *const c_void)>,
+    ) -> i32;
+}
+
+fn checked(what: &str, status: i32) -> Result<(), String> {
+    if status == 0 {
+        return Ok(());
     }
-    Warm { engine, device }
+    // OSStatus values are often four printable characters.
+    let bytes = status.to_be_bytes();
+    let code = if bytes.iter().all(|b| b.is_ascii_graphic() || *b == b' ') {
+        format!("'{}'", String::from_utf8_lossy(&bytes))
+    } else {
+        status.to_string()
+    };
+    Err(format!("{what} failed (Core Audio error {code})"))
 }
 
-/// Stop an engine and release it a little later. When a device goes away, Core Audio can
-/// still be running one of the engine's own property listeners, and releasing the engine
-/// under it crashes.
-fn retire(engine: Retained<AVAudioEngine>) {
-    let _ = objc2::exception::catch(AssertUnwindSafe(|| unsafe { engine.stop() }));
-    RETIRED.with(|r| {
-        let mut r = r.borrow_mut();
-        r.retain(|(t, _)| t.elapsed() < LINGER);
-        r.push((Instant::now(), engine));
+/// What the input callback needs: the unit to pull audio from, and room for each channel.
+struct Callback {
+    unit: *mut c_void,
+    channels: usize,
+    buffers: Vec<Vec<f32>>,
+}
+
+/// An input device opened through a HAL unit, initialized and ready to start.
+struct Unit {
+    au: *mut c_void,
+    device: u32,
+    rate: u32,
+    /// Boxed so its address, which the callback holds, stays put when the unit moves.
+    callback: Box<Callback>,
+}
+
+impl Unit {
+    fn open(device: u32) -> Result<Unit, String> {
+        let description =
+            ComponentDescription { kind: AU_TYPE_OUTPUT, sub_kind: AU_SUBTYPE_HAL, manufacturer: AU_APPLE, flags: 0, flags_mask: 0 };
+        let component = unsafe { AudioComponentFindNext(std::ptr::null_mut(), &description) };
+        if component.is_null() {
+            return Err("Core Audio's input unit is missing.".into());
+        }
+        let mut au = std::ptr::null_mut();
+        checked("Creating the input unit", unsafe { AudioComponentInstanceNew(component, &mut au) })?;
+        // From here on, dropping `unit` disposes of the AudioUnit.
+        let mut unit = Unit {
+            au,
+            device,
+            rate: 0,
+            callback: Box::new(Callback { unit: au, channels: 0, buffers: Vec::new() }),
+        };
+        let set_u32 = |id, scope, element, value: u32| unsafe {
+            AudioUnitSetProperty(au, id, scope, element, (&raw const value).cast(), 4)
+        };
+        checked("Turning on input", set_u32(AU_ENABLE_IO, AU_SCOPE_INPUT, AU_INPUT, 1))?;
+        checked("Turning off output", set_u32(AU_ENABLE_IO, AU_SCOPE_OUTPUT, AU_OUTPUT, 0))?;
+        checked("Choosing the microphone", set_u32(AU_CURRENT_DEVICE, AU_SCOPE_GLOBAL, 0, device))?;
+        let hardware = unit.hardware_format()?;
+        let rate = hardware.sample_rate;
+        let channels = (hardware.channels_per_frame as usize).min(MAX_CHANNELS);
+        if rate <= 0.0 || channels == 0 {
+            return Err("No microphone is available.".into());
+        }
+        // Float, one buffer per channel, at the device's rate: the unit converts the sample
+        // format and layout, but not the rate.
+        let client = StreamFormat {
+            sample_rate: rate,
+            format_id: LINEAR_PCM,
+            format_flags: FLOAT_NON_INTERLEAVED,
+            bytes_per_packet: 4,
+            frames_per_packet: 1,
+            bytes_per_frame: 4,
+            channels_per_frame: channels as u32,
+            bits_per_channel: 32,
+            reserved: 0,
+        };
+        checked("Setting the recording format", unsafe {
+            AudioUnitSetProperty(
+                au,
+                AU_STREAM_FORMAT,
+                AU_SCOPE_OUTPUT,
+                AU_INPUT,
+                (&raw const client).cast(),
+                std::mem::size_of::<StreamFormat>() as u32,
+            )
+        })?;
+        let mut max_frames = 0u32;
+        let mut size = 4u32;
+        unsafe { AudioUnitGetProperty(au, AU_MAX_FRAMES, AU_SCOPE_GLOBAL, 0, (&raw mut max_frames).cast(), &mut size) };
+        unit.callback.channels = channels;
+        unit.callback.buffers = vec![vec![0.0; max_frames.max(4096) as usize]; channels];
+        let callback = RenderCallback { input: on_input, refcon: (&raw mut *unit.callback).cast() };
+        checked("Setting the input callback", unsafe {
+            AudioUnitSetProperty(
+                au,
+                AU_INPUT_CALLBACK,
+                AU_SCOPE_GLOBAL,
+                0,
+                (&raw const callback).cast(),
+                std::mem::size_of::<RenderCallback>() as u32,
+            )
+        })?;
+        checked("Preparing the microphone", unsafe { AudioUnitInitialize(au) })?;
+        unit.rate = rate.round() as u32;
+        Ok(unit)
+    }
+
+    /// The device's own input format, as the unit sees it now.
+    fn hardware_format(&self) -> Result<StreamFormat, String> {
+        let mut format = StreamFormat::default();
+        let mut size = std::mem::size_of::<StreamFormat>() as u32;
+        checked("Reading the microphone's format", unsafe {
+            AudioUnitGetProperty(self.au, AU_STREAM_FORMAT, AU_SCOPE_INPUT, AU_INPUT, (&raw mut format).cast(), &mut size)
+        })?;
+        Ok(format)
+    }
+}
+
+impl Drop for Unit {
+    fn drop(&mut self) {
+        unsafe {
+            AudioOutputUnitStop(self.au);
+            AudioUnitUninitialize(self.au);
+            AudioComponentInstanceDispose(self.au);
+        }
+    }
+}
+
+/// Pulls each buffer of input from the unit and adds it to the recording. Runs on Core
+/// Audio's thread.
+unsafe extern "C" fn on_input(
+    refcon: *mut c_void,
+    flags: *mut u32,
+    time: *const c_void,
+    bus: u32,
+    frames: u32,
+    _data: *mut BufferList,
+) -> i32 {
+    // SAFETY: `refcon` is the unit's boxed `Callback`, which outlives the running unit.
+    let callback = unsafe { &mut *refcon.cast::<Callback>() };
+    let n = frames as usize;
+    if callback.buffers.first().is_none_or(|b| b.len() < n) {
+        return 0;
+    }
+    let empty = AudioBuffer { channels: 1, bytes: 0, data: std::ptr::null_mut() };
+    let mut list = BufferList { count: callback.channels as u32, buffers: [empty; MAX_CHANNELS] };
+    for (slot, buffer) in list.buffers.iter_mut().zip(callback.buffers.iter_mut()) {
+        *slot = AudioBuffer { channels: 1, bytes: frames * 4, data: buffer.as_mut_ptr().cast() };
+    }
+    let status = unsafe { AudioUnitRender(callback.unit, flags, time, bus, frames, &mut list) };
+    if status != 0 {
+        if !FAILED.swap(true, Ordering::Relaxed) {
+            crate::util::main_async(lost);
+        }
+        return status;
+    }
+    let channels: Vec<&[f32]> = list.buffers[..callback.channels]
+        .iter()
+        .filter(|b| !b.data.is_null())
+        // SAFETY: the unit filled `frames` floats into each buffer.
+        .map(|b| unsafe { std::slice::from_raw_parts(b.data.cast::<f32>(), n.min(b.bytes as usize / 4)) })
+        .collect();
+    add(&mix_down(&channels));
+    0
+}
+
+/// Append a mixed buffer to the recording and update the level.
+fn add(mono: &[f32]) {
+    if mono.is_empty() {
+        return;
+    }
+    let mut sum = 0.0f32;
+    let mut out = SAMPLES.lock().unwrap();
+    for &s in mono {
+        sum += s * s;
+        out.push((s.clamp(-1.0, 1.0) * 32767.0) as i16);
+    }
+    if sum > 0.0 {
+        LIVE_AT.lock().unwrap().get_or_insert_with(Instant::now);
+    }
+    LEVEL.store((sum / mono.len() as f32).sqrt().to_bits(), Ordering::Relaxed);
+}
+
+/// Mix channels down to one, weighting each by its loudness. A mic that's on one channel
+/// only (a DJI receiver in stereo with one transmitter, an audio interface with one mic
+/// plugged in) keeps its full level, and identical channels mix to themselves.
+fn mix_down(channels: &[&[f32]]) -> Vec<f32> {
+    let frames = channels.iter().map(|c| c.len()).min().unwrap_or(0);
+    if channels.len() == 1 || frames == 0 {
+        return channels.first().map(|c| c.to_vec()).unwrap_or_default();
+    }
+    let rms: Vec<f32> =
+        channels.iter().map(|c| (c[..frames].iter().map(|s| s * s).sum::<f32>() / frames as f32).sqrt()).collect();
+    let total: f32 = rms.iter().sum();
+    let weights: Vec<f32> = if total > 0.0 {
+        rms.iter().map(|r| r / total).collect()
+    } else {
+        vec![1.0 / channels.len() as f32; channels.len()]
+    };
+    (0..frames).map(|i| channels.iter().zip(&weights).map(|(c, w)| c[i] * w).sum()).collect()
+}
+
+/// A Core Audio property listener, removed when dropped.
+struct Listener {
+    object: u32,
+    selector: u32,
+    block: RcBlock<dyn Fn(u32, *const c_void)>,
+}
+
+impl Listener {
+    /// Run `f` on the main thread when `selector` changes on `object`.
+    fn add(object: u32, selector: u32, f: fn()) -> Option<Listener> {
+        let block: RcBlock<dyn Fn(u32, *const c_void)> =
+            RcBlock::new(move |_: u32, _: *const c_void| crate::util::main_async(f));
+        let status = unsafe {
+            AudioObjectAddPropertyListenerBlock(
+                object,
+                &address(selector, SCOPE_GLOBAL),
+                std::ptr::null(),
+                RcBlock::as_ptr(&block),
+            )
+        };
+        (status == 0).then_some(Listener { object, selector, block })
+    }
+}
+
+impl Drop for Listener {
+    fn drop(&mut self) {
+        unsafe {
+            AudioObjectRemovePropertyListenerBlock(
+                self.object,
+                &address(self.selector, SCOPE_GLOBAL),
+                std::ptr::null(),
+                RcBlock::as_ptr(&self.block),
+            );
+        }
+    }
+}
+
+/// The recording's device disconnected or stopped delivering audio: tell the app, which
+/// ends the dictation with what was heard.
+fn lost() {
+    if is_recording() {
+        CHANGED.with(|c| c.set(true));
+        crate::app::input_lost();
+    }
+}
+
+/// The device the recording uses died (or, for the 'livn' listener, changed liveness).
+fn device_changed() {
+    let gone = ACTIVE.with(|a| {
+        a.borrow().as_ref().is_some_and(|a| get_u32(a.unit.device, IS_ALIVE, SCOPE_GLOBAL) != Some(1))
     });
-    crate::util::main_after(LINGER.as_secs_f64() + 1.0, release_retired);
+    if gone {
+        lost();
+    }
 }
 
-fn release_retired() {
-    RETIRED.with(|r| r.borrow_mut().retain(|(t, _)| t.elapsed() < LINGER));
-}
-
-/// Build and prepare an engine now so the next `start` is quick. Cheap if one is ready.
+/// Build and initialize a unit now so the next `start` is quick. Cheap if one is ready.
 pub fn prewarm() {
     if is_recording() {
         return;
     }
     let device = current_input();
-    let old = WARM.with(|w| w.borrow_mut().take_if(|w| w.device != device));
-    if let Some(old) = old {
-        retire(old.engine);
-    }
-    if WARM.with(|w| w.borrow().is_none()) {
+    WARM.with(|w| {
+        let mut w = w.borrow_mut();
+        if w.as_ref().is_some_and(|u| u.device == device) || device == 0 {
+            return;
+        }
+        *w = None;
         let t = Instant::now();
-        let warm = build(device);
-        WARM.with(|w| *w.borrow_mut() = Some(warm));
-        crate::util::log(format!("audio engine ready in {} ms", t.elapsed().as_millis()));
-    }
+        match Unit::open(device) {
+            Ok(unit) => {
+                *w = Some(unit);
+                crate::util::log(format!("audio input ready in {} ms", t.elapsed().as_millis()));
+            }
+            Err(e) => crate::util::log(format!("couldn't prepare the microphone: {e}")),
+        }
+    });
 }
 
-/// When the mic first sent sound, measured from `since`.
 pub fn live_after(since: Instant) -> Option<Duration> {
     LIVE_AT.lock().unwrap().map(|t| t.saturating_duration_since(since))
 }
@@ -360,7 +638,7 @@ pub fn level() -> f32 {
     (f32::from_bits(LEVEL.load(Ordering::Relaxed)) * 8.0).min(1.0)
 }
 
-/// Open the mic and start collecting audio. Returns whether a prepared engine was used.
+/// Open the mic and start collecting audio. Returns whether a prepared unit was used.
 pub fn start() -> Result<bool, String> {
     if is_recording() {
         return Ok(true);
@@ -369,190 +647,65 @@ pub fn start() -> Result<bool, String> {
     if device == 0 {
         return Err("No microphone is available.".into());
     }
-    let warm = WARM.with(|w| w.borrow_mut().take());
-    let (mut warm, reused) = match warm {
-        Some(w) if w.device == device => (Some(w), true),
-        Some(w) => {
-            retire(w.engine);
-            (None, false)
-        }
-        None => (None, false),
-    };
-    // A prepared engine can be stale if the device changed format since (AirPods switching
-    // to their headset mode, say). Then build a fresh one and try once more.
+    let warm = WARM.with(|w| w.borrow_mut().take()).filter(|u| u.device == device);
+    let reused = warm.is_some();
+    // A prepared unit can be stale if the device changed rate since (AirPods switching to
+    // their headset mode, say). Then build a fresh one and try once more.
+    let mut warm = warm;
     let mut last_error = String::new();
     for _ in 0..2 {
-        let Warm { engine, device } = warm.take().unwrap_or_else(|| build(device));
-        match open(&engine) {
-            Ok((tap, rate)) => {
-                let observer = observe(&engine);
-                CHANGED.with(|c| c.set(false));
-                ACTIVE.with(|a| {
-                    *a.borrow_mut() =
-                        Some(Active { engine, device, _tap: tap, observer, rate, started: Instant::now() })
-                });
-                return Ok(reused);
-            }
-            Err(e) => {
-                crate::util::log(format!("couldn't open the microphone: {e}"));
-                retire(engine);
-                last_error = e;
-            }
+        let unit = match warm.take() {
+            Some(u) => u,
+            None => match Unit::open(device) {
+                Ok(u) => u,
+                Err(e) => {
+                    last_error = e;
+                    continue;
+                }
+            },
+        };
+        let current = unit.hardware_format().map(|f| f.sample_rate.round() as u32).unwrap_or(0);
+        if current != unit.rate {
+            last_error = "The microphone changed format.".into();
+            continue;
         }
+        {
+            let mut s = SAMPLES.lock().unwrap();
+            s.clear();
+            s.reserve(unit.rate as usize * 60);
+        }
+        LEVEL.store(0, Ordering::Relaxed);
+        *LIVE_AT.lock().unwrap() = None;
+        FAILED.store(false, Ordering::Relaxed);
+        if let Err(e) = checked("Starting the microphone", unsafe { AudioOutputUnitStart(unit.au) }) {
+            last_error = e;
+            continue;
+        }
+        CHANGED.with(|c| c.set(false));
+        let alive = Listener::add(device, IS_ALIVE, device_changed);
+        ACTIVE.with(|a| *a.borrow_mut() = Some(Active { unit, alive, started: Instant::now() }));
+        return Ok(reused);
     }
+    crate::util::log(format!("couldn't open the microphone: {last_error}"));
     Err(last_error)
-}
-
-/// Install the tap and start `engine`, returning the tap and the sample rate.
-fn open(engine: &AVAudioEngine) -> Result<(TapBlock, u32), String> {
-    let input = unsafe { engine.inputNode() };
-    let format = unsafe { input.outputFormatForBus(0) };
-    let hardware = unsafe { input.inputFormatForBus(0) };
-    let rate = unsafe { format.sampleRate() };
-    let channels = unsafe { format.channelCount() };
-    if rate <= 0.0 || channels == 0 {
-        return Err("No microphone is available.".into());
-    }
-    // Installing a tap at a sample rate the hardware no longer runs at raises an exception.
-    // (Channel counts can differ: the node hands a mono mic over as two channels.)
-    if unsafe { hardware.sampleRate() } != rate {
-        return Err("The microphone changed format.".into());
-    }
-    {
-        let mut s = SAMPLES.lock().unwrap();
-        s.clear();
-        s.reserve(rate as usize * 60);
-    }
-    LEVEL.store(0, Ordering::Relaxed);
-    *LIVE_AT.lock().unwrap() = None;
-
-    let tap: TapBlock = RcBlock::new(|buffer: NonNull<AVAudioPCMBuffer>, _when: NonNull<AVAudioTime>| {
-        // SAFETY: AVAudioEngine hands us a valid buffer for the duration of the call.
-        let mono = mix_down(&channels_of(unsafe { buffer.as_ref() }));
-        if mono.is_empty() {
-            return;
-        }
-        let mut sum = 0.0f32;
-        let mut out = SAMPLES.lock().unwrap();
-        for &s in &mono {
-            sum += s * s;
-            out.push((s.clamp(-1.0, 1.0) * 32767.0) as i16);
-        }
-        if sum > 0.0 {
-            LIVE_AT.lock().unwrap().get_or_insert_with(Instant::now);
-        }
-        LEVEL.store((sum / mono.len() as f32).sqrt().to_bits(), Ordering::Relaxed);
-    });
-
-    let started = objc2::exception::catch(AssertUnwindSafe(|| unsafe {
-        input.installTapOnBus_bufferSize_format_block(0, 4096, Some(&format), RcBlock::as_ptr(&tap));
-        engine.prepare();
-        engine.startAndReturnError()
-    }));
-    match started {
-        Ok(Ok(())) => Ok((tap, rate.round() as u32)),
-        Ok(Err(e)) => {
-            let _ = objc2::exception::catch(AssertUnwindSafe(|| unsafe { input.removeTapOnBus(0) }));
-            Err(e.localizedDescription().to_string())
-        }
-        Err(exception) => {
-            let _ = objc2::exception::catch(AssertUnwindSafe(|| unsafe { input.removeTapOnBus(0) }));
-            Err(exception.map_or_else(|| "unknown exception".to_string(), |e| format!("{e:?}")))
-        }
-    }
-}
-
-/// Call `app::input_lost` if `engine` stops itself mid-recording, which it does when its
-/// device disconnects or changes format.
-fn observe(engine: &AVAudioEngine) -> Retained<ProtocolObject<dyn NSObjectProtocol>> {
-    let name = NSString::from_str("AVAudioEngineConfigurationChangeNotification");
-    let block = RcBlock::new(|_: NonNull<NSNotification>| {
-        let stopped = ACTIVE.with(|a| a.borrow().as_ref().is_some_and(|a| !unsafe { a.engine.isRunning() }));
-        if stopped {
-            CHANGED.with(|c| c.set(true));
-            crate::app::input_lost();
-        }
-    });
-    unsafe {
-        NSNotificationCenter::defaultCenter().addObserverForName_object_queue_usingBlock(
-            Some(&name),
-            Some(engine),
-            Some(&NSOperationQueue::mainQueue()),
-            &block,
-        )
-    }
-}
-
-/// Each channel of `buffer` as floats.
-fn channels_of(buffer: &AVAudioPCMBuffer) -> Vec<Vec<f32>> {
-    let frames = unsafe { buffer.frameLength() } as usize;
-    let count = unsafe { buffer.format().channelCount() } as usize;
-    // Interleaved buffers hold every channel in the first pointer, `stride` apart.
-    let stride = unsafe { buffer.stride() }.max(1);
-    let interleaved = stride > 1;
-    let float = unsafe { buffer.floatChannelData() };
-    let int16 = unsafe { buffer.int16ChannelData() };
-    if frames == 0 || count == 0 || (float.is_null() && int16.is_null()) {
-        return Vec::new();
-    }
-    (0..count)
-        .map(|ch| {
-            let (pointer, offset) = if interleaved { (0, ch) } else { (ch, 0) };
-            (0..frames)
-                .map(|i| {
-                    let at = i * stride + offset;
-                    // SAFETY: the buffer holds `frames` frames of `count` channels.
-                    unsafe {
-                        if !float.is_null() {
-                            *(*float.add(pointer)).as_ptr().add(at)
-                        } else {
-                            *(*int16.add(pointer)).as_ptr().add(at) as f32 / 32768.0
-                        }
-                    }
-                })
-                .collect()
-        })
-        .collect()
-}
-
-/// Mix channels down to one, weighting each by its loudness. A mic that's on one channel
-/// only (a DJI receiver in stereo with one transmitter, an audio interface with one mic
-/// plugged in) keeps its full level, and identical channels mix to themselves.
-fn mix_down(channels: &[Vec<f32>]) -> Vec<f32> {
-    let frames = channels.iter().map(Vec::len).min().unwrap_or(0);
-    if channels.len() == 1 || frames == 0 {
-        return channels.first().cloned().unwrap_or_default();
-    }
-    let rms: Vec<f32> =
-        channels.iter().map(|c| (c[..frames].iter().map(|s| s * s).sum::<f32>() / frames as f32).sqrt()).collect();
-    let total: f32 = rms.iter().sum();
-    let weights: Vec<f32> = if total > 0.0 {
-        rms.iter().map(|r| r / total).collect()
-    } else {
-        vec![1.0 / channels.len() as f32; channels.len()]
-    };
-    (0..frames).map(|i| channels.iter().zip(&weights).map(|(c, w)| c[i] * w).sum()).collect()
 }
 
 /// Stop and return what was recorded.
 pub fn stop() -> Option<Recording> {
     let active = ACTIVE.with(|a| a.borrow_mut().take())?;
-    unsafe { NSNotificationCenter::defaultCenter().removeObserver(active.observer.as_ref()) };
-    let _ = objc2::exception::catch(AssertUnwindSafe(|| unsafe { active.engine.inputNode().removeTapOnBus(0) }));
+    drop(active.alive);
+    unsafe { AudioOutputUnitStop(active.unit.au) };
+    let rate = active.unit.rate;
     if CHANGED.with(Cell::take) {
-        // It stopped because its device went away or changed; build a new one for next time.
-        retire(active.engine);
+        // It stopped because its device went away or failed; build a new one for next time.
+        drop(active.unit);
         crate::util::main_after(0.5, prewarm);
     } else {
-        let _ = objc2::exception::catch(AssertUnwindSafe(|| unsafe {
-            active.engine.stop();
-            active.engine.prepare();
-        }));
-        // Keep the engine for next time; `start` checks it still matches the input device.
-        WARM.with(|w| *w.borrow_mut() = Some(Warm { engine: active.engine, device: active.device }));
+        // Keep the unit for next time; `start` checks it still matches the input device.
+        WARM.with(|w| *w.borrow_mut() = Some(active.unit));
     }
     let samples = std::mem::take(&mut *SAMPLES.lock().unwrap());
-    Some(Recording { samples, rate: active.rate })
+    Some(Recording { samples, rate })
 }
 
 /// Stop and throw the audio away.
@@ -591,7 +744,7 @@ mod tests {
     #[test]
     fn a_mic_on_one_channel_keeps_its_level() {
         let speech = vec![0.5, -0.5, 0.25, -0.25];
-        let mixed = mix_down(&[vec![0.0; 4], speech.clone()]);
+        let mixed = mix_down(&[&[0.0; 4], &speech]);
         for (m, s) in mixed.iter().zip(&speech) {
             assert!((m - s).abs() < 1e-6);
         }
@@ -600,7 +753,7 @@ mod tests {
     #[test]
     fn identical_channels_mix_to_themselves() {
         let speech = vec![0.5, -0.5, 0.25, -0.25];
-        let mixed = mix_down(&[speech.clone(), speech.clone()]);
+        let mixed = mix_down(&[&speech, &speech]);
         for (m, s) in mixed.iter().zip(&speech) {
             assert!((m - s).abs() < 1e-6);
         }
@@ -608,8 +761,8 @@ mod tests {
 
     #[test]
     fn silence_mixes_to_silence() {
-        assert_eq!(mix_down(&[vec![0.0; 3], vec![0.0; 3]]), vec![0.0; 3]);
-        assert_eq!(mix_down(&[vec![0.1, 0.2]]), vec![0.1, 0.2]);
+        assert_eq!(mix_down(&[&[0.0; 3], &[0.0; 3]]), vec![0.0; 3]);
+        assert_eq!(mix_down(&[&[0.1, 0.2]]), vec![0.1, 0.2]);
         assert!(mix_down(&[]).is_empty());
     }
 
