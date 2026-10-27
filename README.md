@@ -71,6 +71,7 @@ The menu bar menu shows your last five dictations. Click a dictation to copy it 
 
 - **Start Dictation** becomes **Stop and Paste** while you're speaking.
 - **Transcribe Last Recording Again** runs your last recording through the current model, which is useful after switching models.
+- **Microphone** names the mic the next dictation uses. Choose a mic there, or in Settings › General, and Tamka stays on it whenever it's connected and uses the system default when it isn't. A mic with several channels, such as a DJI Mic receiver in stereo, is mixed down, so both transmitters are heard.
 - Problems such as a missing permission or a model that hasn't been downloaded appear as menu items that open the fix.
 - The menu bar icon turns red while Tamka is listening.
 
@@ -116,7 +117,7 @@ In **Settings › Text** you can turn filler removal and stutter cleanup on or o
   <img src="docs/images/settings-general.png" width="520" alt="Settings, General tab: shortcut, recording, indicator, paste, startup, permissions and troubleshooting">
 </p>
 
-**Settings › General** holds the shortcut, a recording time limit, the start and stop sounds, the indicator position, whether Tamka pastes the text and keeps it on the clipboard, launch at login, the microphone and Accessibility permissions, and the activity log. Changes apply immediately.
+**Settings › General** holds the shortcut, the microphone, a recording time limit, the start and stop sounds, the indicator position, whether Tamka pastes the text and keeps it on the clipboard, launch at login, the microphone and Accessibility permissions, and the activity log. Changes apply immediately.
 
 ## Privacy
 
@@ -185,6 +186,7 @@ Tamka has no Dock icon. To start it when you log in, turn on **Launch Tamka at l
 | The text is copied but not pasted | Accessibility is off. Click **Allow…** next to it in Settings › General. |
 | Nothing happens when you press the shortcut | Another app may use the same keys. Choose a different shortcut in Settings › General. |
 | The indicator covers what you're typing | Drag it somewhere else. It stays where you put it. |
+| Tamka moved to a mic you plugged in | macOS makes a new mic the system default. Choose the mic you want under **Microphone** in the menu, and Tamka stays on it. |
 | The menu says no model is downloaded | Choose **Download a Speech Model…** in the menu. |
 | Something else goes wrong | Open the activity log from Settings › General. It shows events and timings, never your words. |
 
@@ -202,7 +204,7 @@ The menu bar app is written in Rust against AppKit through [objc2](https://githu
 |---|---|
 | `src/app.rs` | The menu bar and the dictation flow: idle, listening, transcribing, paste |
 | `src/hud.rs` | The draggable indicator and notifications |
-| `src/audio.rs` | Microphone capture with AVAudioEngine, only while listening |
+| `src/audio.rs` | Microphone capture through Core Audio's input unit, only while listening |
 | `src/engine.rs` | Starts and supervises the speech helper |
 | `src/models.rs` | The model catalog and grades; download, removal and status |
 | `src/text.rs` | Filler removal, stutter cleanup, spoken commands and spacing |
