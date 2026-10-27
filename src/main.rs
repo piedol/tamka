@@ -15,6 +15,8 @@ mod settings;
 mod settings_window;
 mod text;
 mod ui;
+mod update;
+mod update_ui;
 mod util;
 
 #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]

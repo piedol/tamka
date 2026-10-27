@@ -1,5 +1,5 @@
 //! The single Objective-C controller that AppKit calls back into (app delegate,
-//! menu delegate, menu items, timers), plus small AppKit helpers.
+//! menu delegate, menu items, timers, the update notification), plus small AppKit helpers.
 
 use std::cell::OnceCell;
 
@@ -11,6 +11,10 @@ use objc2_app_kit::{
     NSMenuDelegate,
 };
 use objc2_foundation::{MainThreadMarker, NSArray, NSNotification, NSObject, NSObjectProtocol, NSURL};
+use objc2_user_notifications::{
+    UNNotification, UNNotificationPresentationOptions, UNNotificationResponse, UNUserNotificationCenter,
+    UNUserNotificationCenterDelegate,
+};
 
 use crate::util::ns;
 
@@ -51,7 +55,41 @@ define_class!(
         }
     }
 
+    unsafe impl UNUserNotificationCenterDelegate for Controller {
+        #[unsafe(method(userNotificationCenter:willPresentNotification:withCompletionHandler:))]
+        fn will_present(
+            &self,
+            _center: &UNUserNotificationCenter,
+            _notification: &UNNotification,
+            handler: &block2::DynBlock<dyn Fn(UNNotificationPresentationOptions)>,
+        ) {
+            // Show the banner even while Settings is in front.
+            handler.call((UNNotificationPresentationOptions::Banner | UNNotificationPresentationOptions::List,));
+        }
+
+        #[unsafe(method(userNotificationCenter:didReceiveNotificationResponse:withCompletionHandler:))]
+        fn did_receive(
+            &self,
+            _center: &UNUserNotificationCenter,
+            response: &UNNotificationResponse,
+            handler: &block2::DynBlock<dyn Fn()>,
+        ) {
+            crate::update_ui::notification_response(&response.actionIdentifier().to_string());
+            handler.call(());
+        }
+    }
+
     impl Controller {
+        /// The update window's buttons.
+        #[unsafe(method(updateButton:))]
+        fn update_button(&self, sender: Option<&AnyObject>) {
+            let tag: isize = match sender {
+                Some(s) => unsafe { msg_send![s, tag] },
+                None => 0,
+            };
+            crate::update_ui::button(tag);
+        }
+
         #[unsafe(method(command:))]
         fn command(&self, sender: Option<&AnyObject>) {
             let tag: isize = match sender {

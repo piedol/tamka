@@ -72,6 +72,7 @@ The menu bar menu shows your last five dictations. Click a dictation to copy it 
 - **Start Dictation** becomes **Stop and Paste** while you're speaking.
 - **Transcribe Last Recording Again** runs your last recording through the current model, which is useful after switching models.
 - **Microphone** names the mic the next dictation uses. Choose a mic there, or in Settings › General, and Tamka stays on it whenever it's connected and uses the system default when it isn't. A mic with several channels, such as a DJI Mic receiver in stereo, is mixed down, so both transmitters are heard.
+- **Check for Updates…** looks for a new version. When a new version is out, the item becomes **Update to Tamka X.Y.Z…**.
 - Problems such as a missing permission or a model that hasn't been downloaded appear as menu items that open the fix.
 - The menu bar icon turns red while Tamka is listening.
 
@@ -117,11 +118,20 @@ In **Settings › Text** you can turn filler removal and stutter cleanup on or o
   <img src="docs/images/settings-general.png" width="520" alt="Settings, General tab: shortcut, recording, indicator, paste, startup, permissions and troubleshooting">
 </p>
 
-**Settings › General** holds the shortcut, the microphone, a recording time limit, the start and stop sounds, the indicator position, whether Tamka pastes the text and keeps it on the clipboard, launch at login, the microphone and Accessibility permissions, and the activity log. Changes apply immediately.
+**Settings › General** holds the shortcut, the microphone, a recording time limit, the start and stop sounds, the indicator position, whether Tamka pastes the text and keeps it on the clipboard, launch at login, the daily update check, the microphone and Accessibility permissions, and the activity log. Changes apply immediately.
+
+### Updates
+
+Choose **Check for Updates…** in the menu to look for a new version. Tamka also checks about a minute after launch if the last check was more than a day ago, then daily while it runs. To stop these checks, turn off **Check for updates automatically** in Settings › General.
+
+When a new version is out, a notification says so and the menu shows **Update to Tamka X.Y.Z…**. The first time this happens, macOS asks whether Tamka may show notifications. Choose the menu item or click the notification to read the release notes, then click **Install and Relaunch**.
+
+Tamka downloads the release from GitHub and installs it only if the download matches the checksum GitHub lists for it and the app inside is signed by Tamka's developer and notarized by Apple. The old copy goes to the Trash and the new version opens in its place. If you're dictating, the install waits until you finish. If your account can't make changes in the folder Tamka is in, Tamka opens the release page in your browser instead.
 
 ## Privacy
 
-- Speech recognition runs entirely on your Mac. Tamka connects to the internet only to download a model: Parakeet models come from Hugging Face, and Apple Speech's language files come from Apple.
+- Speech recognition runs entirely on your Mac. Models download once: Parakeet models from Hugging Face, and Apple Speech's language files from Apple.
+- Tamka checks GitHub once a day for a new version. You can turn this off in Settings › General.
 - The microphone is on only while you're dictating.
 - Tamka keeps your last recording at `~/Library/Caches/Tamka/last.wav` for **Transcribe Last Recording Again**. Each new dictation replaces it.
 - The log at `~/Library/Logs/Tamka.log` records events and timings, never your words.
@@ -188,6 +198,7 @@ Tamka has no Dock icon. To start it when you log in, turn on **Launch Tamka at l
 | The indicator covers what you're typing | Drag it somewhere else. It stays where you put it. |
 | Tamka moved to a mic you plugged in | macOS makes a new mic the system default. Choose the mic you want under **Microphone** in the menu, and Tamka stays on it. |
 | The menu says no model is downloaded | Choose **Download a Speech Model…** in the menu. |
+| An update opens the release page instead of installing | Your account can't make changes in the folder Tamka is in. Download the zip from that page and drag **Tamka** into Applications. |
 | Something else goes wrong | Open the activity log from Settings › General. It shows events and timings, never your words. |
 
 ## Development
@@ -211,6 +222,8 @@ The menu bar app is written in Rust against AppKit through [objc2](https://githu
 | `src/paste.rs` | The clipboard, then ⌘V once your modifier keys are released |
 | `src/settings.rs` | Preferences, saved to `~/Library/Application Support/Tamka/settings.json` |
 | `src/settings_window.rs` | The Settings window |
+| `src/update/` | Update checks against GitHub releases: download, checksum, signature and notarization checks, replacing the app and reopening it |
+| `src/update_ui.rs` | The update menu item, setting, notification and window |
 | `engine/` | The Swift speech helper |
 | `eval/` | The benchmark harness |
 | `scripts/` | Build, sign, icon and README image scripts |
@@ -221,6 +234,7 @@ scripts/bundle.sh                             # build and sign dist/Tamka.app
 target/release/Tamka --transcribe clip.wav    # transcribe a file without the microphone
 open "tamka://settings-models"                # open Settings on a tab: settings, settings-models, settings-text
 open "tamka://hud-demo"                       # show the indicator's states
+TAMKA_UPDATE_TEST=install dist/Tamka.app/Contents/MacOS/Tamka   # check now and install a newer release without asking
 swift scripts/make-showcase.swift             # redraw docs/images/showcase.png from the screenshots
 ```
 

@@ -17,7 +17,7 @@ use objc2_service_management::{SMAppService, SMAppServiceStatus};
 
 use crate::permissions::{self, Mic};
 use crate::util::{self, ns};
-use crate::{audio, engine, hotkey, hud, models, paste, settings, settings_window, text, ui};
+use crate::{audio, engine, hotkey, hud, models, paste, settings, settings_window, text, ui, update_ui};
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 enum Phase {
@@ -34,6 +34,8 @@ mod tag {
     pub const QUIT: isize = 7;
     pub const ALLOW_PASTE: isize = 8;
     pub const ALLOW_MIC: isize = 9;
+    /// Check for Updates…, Update to Tamka X…, or the install in progress.
+    pub const UPDATE: isize = 10;
     /// Microphone menu items: MIC + index into `MIC_MENU`.
     pub const MIC: isize = 50;
     pub const RECENT: isize = 100;
@@ -139,6 +141,7 @@ pub fn launched(mtm: MainThreadMarker) {
     std::mem::forget(activity);
     audio::watch_inputs(inputs_changed);
     util::main_after(1.0, audio::prewarm);
+    update_ui::launched();
     util::log(format!("launched, engine '{}', shortcut {}", s.engine, s.shortcut.label()));
 }
 
@@ -342,6 +345,13 @@ pub fn menu_will_open() {
     let settings_item = menu_item(mtm, "Settings…", tag::SETTINGS);
     settings_item.setKeyEquivalent(&ns(","));
     menu.addItem(&settings_item);
+    let (title, subtitle, enabled) = update_ui::menu_item();
+    let update = menu_item(mtm, &title, tag::UPDATE);
+    if let Some(subtitle) = subtitle {
+        update.setSubtitle(Some(&ns(&subtitle)));
+    }
+    update.setEnabled(enabled);
+    menu.addItem(&update);
     let quit = menu_item(mtm, "Quit Tamka", tag::QUIT);
     quit.setKeyEquivalent(&ns("q"));
     menu.addItem(&quit);
@@ -464,6 +474,7 @@ pub fn handle_tag(t: isize) {
             permissions::open_settings("Privacy_Accessibility");
         }
         tag::ALLOW_MIC => permissions::open_settings("Privacy_Microphone"),
+        tag::UPDATE => update_ui::menu_chosen(),
         tag::QUIT => {
             if PHASE.with(Cell::get) == Phase::Recording {
                 audio::cancel();
@@ -503,6 +514,12 @@ pub fn set_login_item(on: bool) -> Result<(), String> {
 }
 
 // ---------------------------------------------------------------- dictation
+
+/// Nothing would be lost by quitting now: not dictating or transcribing, and no
+/// model downloading. An update waits for this.
+pub fn is_idle() -> bool {
+    PHASE.with(Cell::get) == Phase::Idle && models::downloading().is_none()
+}
 
 fn set_phase(p: Phase) {
     PHASE.with(|c| c.set(p));

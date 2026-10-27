@@ -54,6 +54,10 @@ pub struct Settings {
     pub mic_uid: String,
     /// That microphone's name, shown while it isn't connected.
     pub mic_name: String,
+    /// Look for a new version on GitHub once a day.
+    pub check_updates: bool,
+    /// When the last update check got an answer, in seconds since 1970. 0 = never.
+    pub last_update_check: u64,
 }
 
 impl Default for Settings {
@@ -74,6 +78,8 @@ impl Default for Settings {
             find_replace: builtin_rules(),
             mic_uid: String::new(),
             mic_name: String::new(),
+            check_updates: true,
+            last_update_check: 0,
         }
     }
 }
@@ -189,6 +195,8 @@ mod tests {
         let s: Settings = serde_json::from_str(r#"{"engine": "parakeet v2"}"#).unwrap();
         assert_eq!(s.engine, "parakeet v2");
         assert!(s.keep_on_clipboard);
+        assert!(s.check_updates);
+        assert_eq!(s.last_update_check, 0);
         assert_eq!(s.shortcut, Shortcut { key: keys::vk::V, mods: keys::CONTROL });
         let text = serde_json::to_string(&s).unwrap();
         let back: Settings = serde_json::from_str(&text).unwrap();

@@ -40,6 +40,7 @@ const MIC_FIX: isize = 6;
 const AX_FIX: isize = 7;
 const OPEN_LOG: isize = 8;
 const RESET_INDICATOR: isize = 9;
+const UPDATES: isize = 10;
 const FILLERS: isize = 21;
 const REPEATS: isize = 22;
 const DIGITS: isize = 23;
@@ -89,7 +90,7 @@ const LIMITS: &[(u32, &str)] = &[
 const LABEL_W: f64 = 150.0;
 const X: f64 = 24.0;
 const WIN_W: f64 = 600.0;
-const WIN_H: f64 = 800.0;
+const WIN_H: f64 = 826.0;
 
 define_class!(
     // SAFETY: NSView subclass that only flips its coordinate system.
@@ -504,10 +505,14 @@ pub fn show(tab: Option<isize>) {
         g.plain(&c, 20.0);
         controls.insert(tag, as_view(&c));
     }
-    g.section("Startup");
+    g.section("Startup and updates");
     let login = checkbox("Launch Tamka at login", LOGIN, app::login_item_enabled(), &controller);
     g.plain(&login, 20.0);
     controls.insert(LOGIN, as_view(&login));
+    let updates = checkbox("Check for updates automatically", UPDATES, s.check_updates, &controller);
+    updates.setToolTip(Some(&ns("Once a day, Tamka asks GitHub whether there's a newer version")));
+    g.plain(&updates, 20.0);
+    controls.insert(UPDATES, as_view(&updates));
     g.section("Permissions");
     let mic = g.status("Microphone:", &controller, Some(("Open Settings", MIC_FIX)));
     let ax = g.status("Accessibility:", &controller, Some(("Allow…", AX_FIX)));
@@ -849,6 +854,11 @@ fn changed(id: isize) {
             if let Err(e) = app::set_login_item(is_on(id)) {
                 crate::hud::notice("Couldn't change Launch at Login", Some(&e));
             }
+        }
+        UPDATES => {
+            let on = is_on(id);
+            settings::update(|s| s.check_updates = on);
+            crate::update_ui::setting_changed();
         }
         MIC_FIX => permissions::open_settings("Privacy_Microphone"),
         AX_FIX => {
