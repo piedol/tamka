@@ -10,7 +10,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/macOS-26%2B%20·%20Apple%20silicon-1c1c1e?logo=apple" alt="macOS 26 or later on Apple silicon">
-  <a href="LICENSE.md"><img src="https://img.shields.io/badge/license-PolyForm%20Noncommercial-1c1c1e" alt="License: PolyForm Noncommercial 1.0.0"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0-1c1c1e" alt="License: GPL-3.0-or-later"></a>
 </p>
 
 <p align="center">
@@ -234,4 +234,6 @@ Bug reports and pull requests are welcome. Before opening a pull request, run `c
 
 ## License
 
-Tamka is source-available under the [PolyForm Noncommercial License 1.0.0](LICENSE.md). You may use, change and share it for any noncommercial purpose. Commercial use needs a separate license; open an issue to ask about one. Anyone who shares Tamka or a fork must include the license and its Required Notice.
+Copyright 2026 piedol.
+
+Tamka is free software under the [GNU General Public License v3.0 or later](LICENSE). You can use, study, share and change it, including at work. If you distribute a modified version, you must release its source under the same license.
