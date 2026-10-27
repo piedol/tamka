@@ -13,7 +13,7 @@ use objc2_app_kit::{
     NSAlert, NSAlertFirstButtonReturn, NSAlertStyle, NSBackingStoreType, NSBezelStyle, NSBorderType, NSButton,
     NSColor, NSControl, NSControlStateValueOff, NSControlStateValueOn, NSControlTextEditingDelegate, NSEvent,
     NSBox, NSBoxType, NSControlSize, NSEventMask, NSFont, NSFontWeightMedium, NSFontWeightSemibold, NSImage,
-    NSImageView, NSPopUpButton, NSProgressIndicator, NSProgressIndicatorStyle,
+    NSImageView, NSMenuItem, NSPopUpButton, NSProgressIndicator, NSProgressIndicatorStyle,
     NSScrollView, NSSearchField, NSSegmentSwitchTracking, NSSegmentStyle, NSSegmentedControl, NSTabView,
     NSTabViewItem, NSTableColumn, NSTableColumnResizingOptions, NSTableView, NSTableViewDataSource,
     NSTableViewDelegate, NSTableViewStyle, NSTabViewDelegate, NSTextAlignment, NSTextField, NSTextFieldDelegate, NSView, NSWindow,
@@ -29,7 +29,7 @@ use crate::permissions::{self, Mic};
 use crate::models::{self, CATALOG};
 use crate::settings::{self, Rule};
 use crate::util::{self, ns};
-use crate::{app, engine, hotkey, ui};
+use crate::{app, audio, engine, hotkey, ui};
 
 // Control ids (the `tag` of each control).
 const KEY: isize = 1;
@@ -46,6 +46,7 @@ const DIGITS: isize = 23;
 const LIMIT: isize = 24;
 const START_SOUND: isize = 25;
 const STOP_SOUND: isize = 26;
+const MIC: isize = 27;
 const ADD_REMOVE: isize = 30;
 const RESTORE: isize = 31;
 /// Model rows: MODEL_USE + index (radio), MODEL_ACTION + index (Download / Remove / Cancel).
@@ -88,7 +89,7 @@ const LIMITS: &[(u32, &str)] = &[
 const LABEL_W: f64 = 150.0;
 const X: f64 = 24.0;
 const WIN_W: f64 = 600.0;
-const WIN_H: f64 = 740.0;
+const WIN_H: f64 = 800.0;
 
 define_class!(
     // SAFETY: NSView subclass that only flips its coordinate system.
@@ -262,6 +263,8 @@ thread_local! {
     static STATE: RefCell<Option<State>> = const { RefCell::new(None) };
     /// The tab Settings reopens on (remembered while Tamka runs).
     static LAST_TAB: std::cell::Cell<isize> = const { std::cell::Cell::new(0) };
+    /// What the Microphone menu offers, by item tag: None is the system default.
+    static MIC_CHOICES: RefCell<Vec<Option<audio::Input>>> = const { RefCell::new(Vec::new()) };
 }
 
 fn mtm() -> MainThreadMarker {
@@ -470,6 +473,11 @@ pub fn show(tab: Option<isize>) {
     controls.insert(KEY, as_view(&key));
     let key_note = g.note("Click it, then press the new keys. It needs ⌘, ⌃ or ⌥. While you're dictating, Esc discards the recording.");
     g.section("Recording");
+    let mic = popup(&[], 0, MIC, &controller);
+    fill_mics(&mic);
+    g.row("Microphone:", &mic, Some(260.0), 25.0);
+    controls.insert(MIC, as_view(&mic));
+    g.note("Tamka stays on this mic whenever it's connected, and uses the system default when it isn't.");
     let labels: Vec<&str> = LIMITS.iter().map(|l| l.1).collect();
     let limit_i = LIMITS.iter().position(|l| l.0 >= s.max_seconds).unwrap_or(LIMITS.len() - 1);
     let limit = popup(&labels, limit_i, LIMIT, &controller);
@@ -717,6 +725,50 @@ fn selected(id: isize) -> usize {
     control::<NSPopUpButton>(id).map_or(0, |p| p.indexOfSelectedItem().max(0) as usize)
 }
 
+/// Fill the Microphone menu: the system default, each input connected now, and the chosen
+/// mic if it isn't connected. Item tags index `MIC_CHOICES`; the missing mic's tag is -1.
+fn fill_mics(p: &NSPopUpButton) {
+    let s = settings::get();
+    let Some(menu) = p.menu() else { return };
+    menu.removeAllItems();
+    let add = |title: &str, tag: isize| {
+        let item = unsafe {
+            NSMenuItem::initWithTitle_action_keyEquivalent(NSMenuItem::alloc(mtm()), &ns(title), None, &ns(""))
+        };
+        item.setTag(tag);
+        menu.addItem(&item);
+    };
+    let mut choices: Vec<Option<audio::Input>> = vec![None];
+    match audio::default_input_name() {
+        Some(name) => add(&format!("System Default ({name})"), 0),
+        None => add("System Default", 0),
+    }
+    menu.addItem(&NSMenuItem::separatorItem(mtm()));
+    for input in audio::inputs() {
+        add(&input.name, choices.len() as isize);
+        choices.push(Some(input));
+    }
+    let mut selected = 0;
+    if !s.mic_uid.is_empty() {
+        match choices.iter().position(|c| c.as_ref().is_some_and(|i| i.uid == s.mic_uid)) {
+            Some(i) => selected = i as isize,
+            None => {
+                add(&format!("{} (not connected)", s.mic_name), -1);
+                selected = -1;
+            }
+        }
+    }
+    p.selectItemWithTag(selected);
+    MIC_CHOICES.with(|c| *c.borrow_mut() = choices);
+}
+
+/// Inputs connected or disconnected, or the choice changed from the menu bar.
+pub fn refresh_inputs() {
+    if let Some(p) = control::<NSPopUpButton>(MIC) {
+        fill_mics(&p);
+    }
+}
+
 /// Bring statuses, notes and enabled states up to date.
 fn refresh() {
     let s = settings::get();
@@ -780,6 +832,13 @@ fn changed(id: isize) {
         KEEP_CLIP => {
             let on = is_on(id);
             settings::update(|s| s.keep_on_clipboard = on);
+        }
+        MIC => {
+            let tag = control::<NSPopUpButton>(MIC).and_then(|p| p.selectedItem()).map_or(-1, |i| i.tag());
+            if tag >= 0 {
+                let choice = MIC_CHOICES.with(|c| c.borrow().get(tag as usize).cloned().flatten());
+                audio::choose(choice.as_ref());
+            }
         }
         START_SOUND | STOP_SOUND => {
             let name = sound_name(selected(id));

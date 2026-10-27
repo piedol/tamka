@@ -8,7 +8,8 @@ use std::time::{Instant, SystemTime};
 use objc2::rc::Retained;
 use objc2::{sel, MainThreadMarker, MainThreadOnly};
 use objc2_app_kit::{
-    NSApplicationActivationPolicy, NSColor, NSEventModifierFlags, NSImageSymbolConfiguration, NSMenu, NSMenuItem,
+    NSApplicationActivationPolicy, NSColor, NSControlStateValueOff, NSControlStateValueOn, NSEventModifierFlags,
+    NSImageSymbolConfiguration, NSMenu, NSMenuItem,
     NSSound, NSStatusBar, NSStatusItem, NSVariableStatusItemLength,
 };
 use objc2_foundation::{NSActivityOptions, NSArray, NSProcessInfo, NSString, NSTimer};
@@ -33,7 +34,14 @@ mod tag {
     pub const QUIT: isize = 7;
     pub const ALLOW_PASTE: isize = 8;
     pub const ALLOW_MIC: isize = 9;
+    /// Microphone menu items: MIC + index into `MIC_MENU`.
+    pub const MIC: isize = 50;
     pub const RECENT: isize = 100;
+}
+
+thread_local! {
+    /// What the Microphone submenu offered when it was built: None is the system default.
+    static MIC_MENU: RefCell<Vec<Option<audio::Input>>> = const { RefCell::new(Vec::new()) };
 }
 
 /// Transcripts shown in the menu.
@@ -129,7 +137,7 @@ pub fn launched(mtm: MainThreadMarker) {
         &ns("Respond to the dictation shortcut at once"),
     );
     std::mem::forget(activity);
-    audio::watch_default_input(audio::prewarm);
+    audio::watch_inputs(inputs_changed);
     util::main_after(1.0, audio::prewarm);
     util::log(format!("launched, engine '{}', shortcut {}", s.engine, s.shortcut.label()));
 }
@@ -330,12 +338,66 @@ pub fn menu_will_open() {
     if !engine_failed {
         menu.addItem(&engine_item);
     }
+    menu.addItem(&microphone_item(mtm, &s));
     let settings_item = menu_item(mtm, "Settings…", tag::SETTINGS);
     settings_item.setKeyEquivalent(&ns(","));
     menu.addItem(&settings_item);
     let quit = menu_item(mtm, "Quit Tamka", tag::QUIT);
     quit.setKeyEquivalent(&ns("q"));
     menu.addItem(&quit);
+}
+
+/// The Microphone item: the input the next dictation uses, and a submenu to choose one.
+fn microphone_item(mtm: MainThreadMarker, s: &settings::Settings) -> Retained<NSMenuItem> {
+    let item = menu_item(mtm, "Microphone", 0);
+    item.setSubtitle(Some(&ns(&audio::current_input_name().unwrap_or_else(|| "None connected".into()))));
+    let sub = NSMenu::new(mtm);
+    sub.setAutoenablesItems(false);
+    let inputs = audio::inputs();
+    let mut offered: Vec<Option<audio::Input>> = vec![None];
+    let system = menu_item(mtm, "System Default", tag::MIC);
+    if let Some(name) = audio::default_input_name() {
+        system.setSubtitle(Some(&ns(&name)));
+    }
+    system.setState(if s.mic_uid.is_empty() { NSControlStateValueOn } else { NSControlStateValueOff });
+    sub.addItem(&system);
+    sub.addItem(&NSMenuItem::separatorItem(mtm));
+    for input in &inputs {
+        let i = menu_item(mtm, &input.name, tag::MIC + offered.len() as isize);
+        i.setState(if input.uid == s.mic_uid { NSControlStateValueOn } else { NSControlStateValueOff });
+        sub.addItem(&i);
+        offered.push(Some(input.clone()));
+    }
+    if !s.mic_uid.is_empty() && !inputs.iter().any(|i| i.uid == s.mic_uid) {
+        // The chosen mic isn't connected: show it, checked, so it's clear Tamka goes back to it.
+        let i = menu_item(mtm, &s.mic_name, 0);
+        i.setSubtitle(Some(&ns("Not connected; using the system default")));
+        i.setState(NSControlStateValueOn);
+        i.setEnabled(false);
+        sub.addItem(&i);
+    }
+    sub.addItem(&NSMenuItem::separatorItem(mtm));
+    let note = menu_item(mtm, "Tamka uses the mic you choose whenever it's connected", 0);
+    note.setEnabled(false);
+    sub.addItem(&note);
+    MIC_MENU.with(|m| *m.borrow_mut() = offered);
+    item.setSubmenu(Some(&sub));
+    item
+}
+
+/// An input connected or disconnected, or the default input changed.
+fn inputs_changed() {
+    audio::prewarm();
+    settings_window::refresh_inputs();
+}
+
+/// The microphone went away or changed format mid-dictation: keep what was heard.
+pub fn input_lost() {
+    if PHASE.with(Cell::get) != Phase::Recording {
+        return;
+    }
+    util::log("the microphone stopped mid-dictation (disconnected or changed format)");
+    finish();
 }
 
 /// `tamka://toggle` (same as the shortcut), `tamka://cancel`, `tamka://retry`,
@@ -407,6 +469,13 @@ pub fn handle_tag(t: isize) {
                 audio::cancel();
             }
             ui::app(mtm()).terminate(None);
+        }
+        t if (tag::MIC..tag::RECENT).contains(&t) => {
+            let choice = MIC_MENU.with(|m| m.borrow().get((t - tag::MIC) as usize).cloned());
+            if let Some(choice) = choice {
+                audio::choose(choice.as_ref());
+                settings_window::refresh_inputs();
+            }
         }
         t if t >= tag::RECENT => {
             let i = (t - tag::RECENT) as usize;
@@ -520,10 +589,11 @@ fn start(asked: Instant) {
             hud::show_recording(&s.shortcut.label());
             start_timer();
             util::log(format!(
-                "recording: shortcut waited {} ms, mic opened in {} ms{}",
+                "recording: shortcut waited {} ms, mic opened in {} ms{}, from {}",
                 waited.as_millis(),
                 opened.as_millis(),
-                if warm { "" } else { " (engine built fresh)" }
+                if warm { "" } else { " (engine built fresh)" },
+                audio::current_input_name().unwrap_or_default()
             ));
         }
         Err(e) => {

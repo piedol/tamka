@@ -49,6 +49,11 @@ pub struct Settings {
     pub indicator_anchor: Option<[f64; 2]>,
     /// Spoken phrase → text, applied after cleanup. Longest phrase wins.
     pub find_replace: Vec<Rule>,
+    /// The microphone to record from while it's connected (its Core Audio UID).
+    /// Empty = the system default input.
+    pub mic_uid: String,
+    /// That microphone's name, shown while it isn't connected.
+    pub mic_name: String,
 }
 
 impl Default for Settings {
@@ -67,6 +72,8 @@ impl Default for Settings {
             max_seconds: 600,
             indicator_anchor: None,
             find_replace: builtin_rules(),
+            mic_uid: String::new(),
+            mic_name: String::new(),
         }
     }
 }
