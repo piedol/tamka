@@ -5,7 +5,7 @@
 <h1 align="center">Tamka</h1>
 
 <p align="center">
-  Private, on-device dictation for the Mac.
+  On-device dictation for the Mac.
 </p>
 
 <p align="center">
@@ -21,7 +21,7 @@
   <img src="docs/images/showcase.png" width="880" alt="Tamka's Models settings, its menu with recent dictations, and the listening indicator">
 </p>
 
-Tamka types what you say into any app on your Mac. Press a shortcut, speak, then press the shortcut again, and the text appears at your cursor. Speech recognition runs on the Neural Engine with NVIDIA's Parakeet models, so your voice never leaves the computer. On a MacBook Pro with an M5 Max, the text arrives about 0.2 seconds after you stop, even after 50 seconds of speech.
+Tamka types what you say into any app on your Mac. Press a shortcut, speak, then press the shortcut again, and the text appears at your cursor. Speech recognition runs on the Neural Engine with NVIDIA's Parakeet models, and your audio never leaves the Mac. On a MacBook Pro with an M5 Max, the text arrives about 0.2 seconds after you stop, even after 50 seconds of speech.
 
 Before typing, Tamka removes "um" and "uh", collapses stutters, and turns spoken commands such as "comma", "new line" or "open paren" into the characters they name. With Parakeet Ultra loaded, it uses about 0.5 GB of memory, most of it model weights held by the Neural Engine.
 
@@ -41,7 +41,7 @@ Before typing, Tamka removes "um" and "uh", collapses stutters, and turns spoken
 ## Dictating
 
 1. Click where the text should go: an email, a chat, a code editor or a search box.
-2. Press **⌃V** and speak. A small indicator shows that Tamka is listening, and for how long.
+2. Press **⌃V** and speak. An indicator with a timer shows that Tamka is listening.
 3. Press **⌃V** again. Tamka types what you said at the cursor and keeps a copy on the clipboard.
 
 Press **Esc** while Tamka is listening to throw the recording away.
@@ -58,11 +58,11 @@ Press **Esc** while Tamka is listening to throw the recording away.
 
 ### The indicator
 
-The indicator never takes focus from the app you're typing in. Drag it anywhere, including onto another display, and it appears in the same place for every dictation after that. If that display is disconnected, the indicator goes back to the bottom centre of the screen with the pointer. To put it there yourself, click **Reset Position** in Settings › General.
+The indicator never takes focus from the app you're typing in. Drag it anywhere, including onto another display, and it appears there for later dictations. If that display is disconnected, the indicator goes back to the bottom centre of the screen with the pointer. To put it there yourself, click **Reset Position** in Settings › General.
 
 ### The menu
 
-The menu bar menu shows your last five dictations. Click one to copy it again.
+The menu bar menu shows your last five dictations. Click a dictation to copy it again.
 
 <p align="center">
   <img src="docs/images/menu.png" width="352" alt="The Tamka menu with three recent dictations, the active model and Settings"><br>
@@ -78,7 +78,7 @@ Recent dictations are kept in memory only and are gone when Tamka quits.
 
 ### Speech models
 
-Tamka doesn't include a speech model, which keeps the app small. On first launch, **Settings › Models** opens with one model marked **Recommended**. Each model downloads once and then works offline, and a model you remove goes to the Trash.
+The app doesn't include a speech model. On first launch, **Settings › Models** opens with Parakeet Ultra marked **Recommended**. Models work offline after the download, and removing a model moves it to the Trash.
 
 | Model | Size | Speed | Accuracy | Best for |
 |---|:-:|:-:|:-:|---|
@@ -102,7 +102,7 @@ Say a command and Tamka types the symbol with the spacing fixed: "call foo open 
 | "at sign" | @ | "em dash" | — |
 | "percent sign" | % | "smiley face" | :) |
 
-These are 10 of the 112 commands Tamka starts with.
+The table shows 10 of the 112 default commands.
 
 <p align="center">
   <img src="docs/images/settings-text.png" width="520" alt="Settings, Text tab: cleanup options and a searchable table of spoken commands">
@@ -116,13 +116,13 @@ In **Settings › Text** you can turn filler removal and stutter cleanup on or o
   <img src="docs/images/settings-general.png" width="520" alt="Settings, General tab: shortcut, recording, indicator, paste, startup, permissions and troubleshooting">
 </p>
 
-**Settings › General** holds the shortcut, a recording time limit, the start and stop sounds, the indicator position, whether Tamka pastes for you and keeps the text on the clipboard, launch at login, the microphone and Accessibility permissions, and the activity log. Changes apply immediately; there is no Save button.
+**Settings › General** holds the shortcut, a recording time limit, the start and stop sounds, the indicator position, whether Tamka pastes the text and keeps it on the clipboard, launch at login, the microphone and Accessibility permissions, and the activity log. Changes apply immediately.
 
 ## Privacy
 
 - Speech recognition runs entirely on your Mac. Tamka connects to the internet only to download a model: Parakeet models come from Hugging Face, and Apple Speech's language files come from Apple.
-- The microphone is on only between your two shortcut presses.
-- Tamka keeps one recording, so it can transcribe it again: `~/Library/Caches/Tamka/last.wav`. Each new dictation replaces it.
+- The microphone is on only while you're dictating.
+- Tamka keeps your last recording at `~/Library/Caches/Tamka/last.wav` for **Transcribe Last Recording Again**. Each new dictation replaces it.
 - The log at `~/Library/Logs/Tamka.log` records events and timings, never your words.
 
 ## Accuracy and speed
@@ -140,7 +140,7 @@ Without the meeting recordings, the difference in accuracy is within the margin 
 
 ## Install
 
-Download [Tamka-macOS-arm64.zip](https://github.com/piedol/tamka/releases/latest/download/Tamka-macOS-arm64.zip) from the [latest release](https://github.com/piedol/tamka/releases/latest). It needs a Mac with Apple silicon and macOS 26 or later; the Apple Speech engine uses SpeechAnalyzer, which is new in macOS 26. Unzip it, drag **Tamka** into Applications and open it. Tamka is signed and notarized by Apple.
+Download [Tamka-macOS-arm64.zip](https://github.com/piedol/tamka/releases/latest/download/Tamka-macOS-arm64.zip) from the [latest release](https://github.com/piedol/tamka/releases/latest). It needs a Mac with Apple silicon and macOS 26 or later. (The Apple Speech engine uses SpeechAnalyzer, which is new in macOS 26.) Unzip it, drag **Tamka** into Applications and open it. Tamka is signed and notarized by Apple.
 
 ### Build from source
 
@@ -164,8 +164,8 @@ The script builds the app and its speech engine, signs both, copies `Tamka.app` 
 
 When Tamka first opens:
 
-1. Settings › Models opens by itself. Click **Download** next to Parakeet Ultra (632 MB, once).
-2. Allow Accessibility so Tamka can paste for you. Without it, Tamka copies the text and you paste it yourself.
+1. Settings › Models opens. Click **Download** next to Parakeet Ultra (632 MB).
+2. Allow Accessibility so Tamka can paste the text. Without it, Tamka copies the text and you paste it yourself.
 3. Allow the microphone the first time you dictate.
 
 Tamka has no Dock icon. To start it when you log in, turn on **Launch Tamka at login** in Settings › General.
@@ -184,7 +184,7 @@ Tamka has no Dock icon. To start it when you log in, turn on **Launch Tamka at l
 |---|---|
 | The text is copied but not pasted | Accessibility is off. Click **Allow…** next to it in Settings › General. |
 | Nothing happens when you press the shortcut | Another app may use the same keys. Choose a different shortcut in Settings › General. |
-| The indicator covers what you're typing | Drag it somewhere else; it stays there. |
+| The indicator covers what you're typing | Drag it somewhere else. It stays where you put it. |
 | The menu says no model is downloaded | Choose **Download a Speech Model…** in the menu. |
 | Something else goes wrong | Open the activity log from Settings › General. It shows events and timings, never your words. |
 
@@ -196,7 +196,7 @@ Tamka.app
 └── Contents/Helpers/tamka-engine    Swift: FluidAudio running the speech model on the Neural Engine
 ```
 
-The menu bar app is written in Rust against AppKit through [objc2](https://github.com/madsmtm/objc2). The speech engine is a small Swift helper that keeps the model loaded and talks to the app over stdin and stdout in JSON lines. If the helper stops, Tamka restarts it on the next dictation.
+The menu bar app is written in Rust against AppKit through [objc2](https://github.com/madsmtm/objc2). The speech engine is a Swift helper that keeps the model loaded and talks to the app over stdin and stdout in JSON lines. If the helper stops, Tamka restarts it on the next dictation.
 
 | Path | What it does |
 |---|---|

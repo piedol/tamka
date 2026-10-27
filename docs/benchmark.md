@@ -2,7 +2,7 @@
 
 Tamka's default model, Parakeet Ultra, was chosen with this benchmark, run on 2026-10-24. The test asked for a model that is at least as accurate as Whisper large-v3-turbo, a popular open model, while using less memory and returning text sooner.
 
-**Result:** Parakeet Ultra on the Neural Engine uses about a third of Whisper's memory and is about 3x faster. It makes 23% fewer errors across all clips. On everyday speech it makes about 10% fewer, which is within the noise. Granite Speech 2B and Qwen3-ASR 1.7B are clearly more accurate on everyday speech, but they need 4.8 GB and 2.9 GB of memory.
+Parakeet Ultra on the Neural Engine uses about a third of Whisper's memory and is about 3x faster. It makes 23% fewer errors across all clips. On everyday speech it makes about 10% fewer, which is within the noise. Granite Speech 2B and Qwen3-ASR 1.7B are clearly more accurate on everyday speech, but they need 4.8 GB and 2.9 GB of memory.
 
 ## What was tested
 
@@ -17,9 +17,9 @@ Tamka's default model, Parakeet Ultra, was chosen with this benchmark, run on 20
 
 "Long" clips are 43–65 seconds, stitched from consecutive segments, to match a typical dictation of about 50 seconds.
 
-Every model also received a six-word custom vocabulary (product names such as Zapier, and a surname) as its prompt or hotwords. None of those words occur in the references, so the test also catches models that insert vocabulary words that were never said. That list was private; [`eval/glossary.txt`](../eval/glossary.txt) is an example, so a rerun will give slightly different numbers.
+Each model was also given a six-word custom vocabulary (product names such as Zapier, and a surname) as its prompt or hotwords. None of those words occur in the references, so the test catches models that insert vocabulary words the speaker didn't say. That list was private. [`eval/glossary.txt`](../eval/glossary.txt) is an example, so a rerun will give slightly different numbers.
 
-Hardware: MacBook Pro with M5 Max, macOS 26.6. Latency is measured from the end of the audio to the final text. The finalists were timed again on an idle machine and the numbers matched.
+The benchmark ran on a MacBook Pro with M5 Max and macOS 26.6. Latency is measured from the end of the audio to the final text. The finalists were timed again on an idle machine and the numbers matched.
 
 ## Results
 
@@ -52,7 +52,7 @@ Bootstrap over clips, 95% intervals:
 | Qwen3-ASR 1.7B | 34% (20 to 47) | 14% (1 to 28) |
 | Parakeet Phonon-2 | 27% (13 to 39) | 4% (−10 to 17) |
 | Parakeet Ultra | 23% (12 to 33) | 10% (−3 to 23) |
-| Qwen3-ASR 0.6B | – | 7% (−9 to 22) |
+| Qwen3-ASR 0.6B | n/a | 7% (−9 to 22) |
 | Apple SpeechTranscriber | 14% (−3 to 29) | −6% (−25 to 10) |
 
 The Parakeet variants are within the noise of each other.
@@ -61,12 +61,12 @@ The Parakeet variants are within the noise of each other.
 
 - The meeting clips favour Parakeet. AMI's headset microphones pick up neighbours talking. Whisper (31% WER on short AMI clips) often transcribed the neighbour and invented whole sentences, and Parakeet Ultra did the same on short clips (23%). Whisper also drops stutters ("I had to, I had to"), which the verbatim references count as errors but which a dictation user would want removed. Without AMI, Parakeet's lead over Whisper is within the noise.
 - Whisper repeats its prompt. Given the custom vocabulary as a prompt, Whisper inserted those words at the start of clips that never contained them. Qwen3-ASR's hotwords and Parakeet produced no false vocabulary words.
-- FluidAudio's vocabulary boosting misfires on common words, even with its rescue pass off: "earlier" became "Zapier", and other everyday words turned into product names from the list. For anyone who dictates everyday words all day, that rules it out. Tamka uses find-and-replace rules for names instead.
+- FluidAudio's vocabulary boosting misfires on common words, even with its rescue pass off: "earlier" became "Zapier", and other everyday words turned into product names from the list. That rules it out for general dictation. Tamka uses find-and-replace rules for names instead.
 - Parakeet writes verbatim. It keeps "uh", "um" and repeats ("at the at the"), sometimes spells numbers out ("seventy percent to one point one seven"), and once invented a currency sign. Qwen3-ASR and Whisper drop fillers and write digits. Tamka runs a cleanup step after Parakeet that removes fillers and collapses immediate repeats, followed by its spoken-command rules.
 - FluidAudio's number formatter is not safe as a default. It fixed money and dates ("$1,250.", "January 5, 2025") but also wrote "1 of the things", turned "1.17 billion" into "1.17 1000000000", and dropped the "and" from "one question and two ideas". Tamka keeps it behind an experimental setting.
-- Qwen3-ASR gives the cleanest text (no fillers, digits, good punctuation), and its accuracy lead is real. The cost is memory: 2.9 GB resident and 4.8 GB at peak in MLX.
+- Qwen3-ASR gives the cleanest text (no fillers, digits, good punctuation), and its accuracy lead is outside the noise. It needs 2.9 GB of memory resident and 4.8 GB at peak in MLX.
 - Granite is the most accurate but impractical at 4.8 GB (13 GB at peak on long clips). With keywords, it often drops punctuation and capitals entirely.
-- Apple's models use almost no memory in the app and are about as accurate as Whisper, but they have no working vocabulary support and are slow on long clips (0.7–1.5 seconds).
+- Apple's models use almost no memory in the app. SpeechTranscriber is about as accurate as Whisper and DictationTranscriber is less accurate. Both have no working vocabulary support and are slow on long clips (0.7–1.5 seconds).
 
 ## Choosing a model
 
