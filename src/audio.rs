@@ -117,6 +117,20 @@ unsafe extern "C" {
     -> i32;
 }
 
+/// An AudioUnit, as `-[AVAudioIONode audioUnit]` returns it.
+#[repr(C)]
+struct AudioUnitRecord {
+    _private: [u8; 0],
+}
+
+// SAFETY: matches the method's declared return type, `^{ComponentInstanceRecord=[1q]}`.
+unsafe impl objc2::encode::RefEncode for AudioUnitRecord {
+    const ENCODING_REF: objc2::encode::Encoding = objc2::encode::Encoding::Pointer(&objc2::encode::Encoding::Struct(
+        "ComponentInstanceRecord",
+        &[objc2::encode::Encoding::Array(1, &objc2::encode::Encoding::LongLong)],
+    ));
+}
+
 fn address(selector: u32, scope: u32) -> PropertyAddress {
     PropertyAddress { selector, scope, element: 0 }
 }
@@ -164,8 +178,8 @@ pub struct Input {
     pub name: String,
 }
 
-/// The inputs connected now, leaving out hidden ones (such as the aggregate devices
-/// macOS makes for itself).
+/// The inputs connected now, leaving out hidden ones and the aggregate devices
+/// AVAudioEngine makes for itself while it records.
 pub fn inputs() -> Vec<Input> {
     let mut size = data_size(SYSTEM_OBJECT, DEVICES, SCOPE_GLOBAL);
     let mut ids = vec![0u32; size as usize / std::mem::size_of::<u32>()];
@@ -187,6 +201,9 @@ pub fn inputs() -> Vec<Input> {
         .filter(|&id| data_size(id, STREAMS, SCOPE_INPUT) > 0 && get_u32(id, IS_HIDDEN, SCOPE_GLOBAL) != Some(1))
         .filter_map(|id| {
             let uid = get_string(id, DEVICE_UID)?;
+            if uid.starts_with("CADefaultDeviceAggregate") {
+                return None;
+            }
             let name = get_string(id, OBJECT_NAME).unwrap_or_else(|| uid.clone());
             Some(Input { id, uid, name })
         })
@@ -262,9 +279,10 @@ fn build(device: u32) -> Warm {
     let built = objc2::exception::catch(AssertUnwindSafe(|| unsafe {
         let input = engine.inputNode();
         if device != 0 {
-            let unit: *mut c_void = msg_send![&*input, audioUnit];
+            let unit: *mut AudioUnitRecord = msg_send![&*input, audioUnit];
             if !unit.is_null() {
-                let status = AudioUnitSetProperty(unit, AU_CURRENT_DEVICE, 0, 0, (&raw const device).cast(), 4);
+                let status =
+                    AudioUnitSetProperty(unit.cast(), AU_CURRENT_DEVICE, 0, 0, (&raw const device).cast(), 4);
                 if status != 0 {
                     crate::util::log(format!("couldn't select input device {device}: error {status}"));
                 }
@@ -395,8 +413,9 @@ fn open(engine: &AVAudioEngine) -> Result<(TapBlock, u32), String> {
     if rate <= 0.0 || channels == 0 {
         return Err("No microphone is available.".into());
     }
-    // Installing a tap whose format no longer matches the hardware raises an exception.
-    if unsafe { hardware.sampleRate() } != rate || unsafe { hardware.channelCount() } != channels {
+    // Installing a tap at a sample rate the hardware no longer runs at raises an exception.
+    // (Channel counts can differ: the node hands a mono mic over as two channels.)
+    if unsafe { hardware.sampleRate() } != rate {
         return Err("The microphone changed format.".into());
     }
     {
