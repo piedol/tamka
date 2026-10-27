@@ -5,7 +5,7 @@
 <h1 align="center">Tamka</h1>
 
 <p align="center">
-  On-device dictation for the Mac.
+  On-device dictation for the Mac, written in Rust.
 </p>
 
 <p align="center">
