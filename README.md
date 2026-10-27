@@ -14,6 +14,10 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/piedol/tamka/releases/latest/download/Tamka-macOS-arm64.zip"><img src="assets/readme/download-mac.svg" height="56" alt="Download for Mac"></a>
+</p>
+
+<p align="center">
   <img src="docs/images/showcase.png" width="880" alt="Tamka's Models settings, its menu with recent dictations, and the listening indicator">
 </p>
 
@@ -136,9 +140,13 @@ Without the meeting recordings, the difference in accuracy is within the margin 
 
 ## Install
 
-There's no prebuilt download yet, so Tamka is built from source. You need:
+Download [Tamka-macOS-arm64.zip](https://github.com/piedol/tamka/releases/latest/download/Tamka-macOS-arm64.zip) from the [latest release](https://github.com/piedol/tamka/releases/latest). It needs a Mac with Apple silicon and macOS 26 or later; the Apple Speech engine uses SpeechAnalyzer, which is new in macOS 26. Unzip it, drag **Tamka** into Applications and open it. Tamka is signed and notarized by Apple.
 
-- a Mac with Apple silicon and macOS 26 or later (the Apple Speech engine uses SpeechAnalyzer, which is new in macOS 26);
+### Build from source
+
+You need:
+
+- a Mac with Apple silicon and macOS 26 or later;
 - Xcode 26 or later;
 - a current stable Rust toolchain from [rustup](https://rustup.rs).
 
@@ -151,6 +159,8 @@ cd tamka && scripts/bundle.sh --install
 ```
 
 The script builds the app and its speech engine, signs both, copies `Tamka.app` to `/Applications` and opens it. It signs with `TAMKA_SIGN_IDENTITY` if that's set, or else with the first Developer ID Application certificate in your keychain. Without either, it uses an ad-hoc signature, and macOS asks for permissions again after every build.
+
+### First launch
 
 When Tamka first opens:
 
