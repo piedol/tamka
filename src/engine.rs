@@ -58,8 +58,13 @@ pub fn helper_path() -> Option<PathBuf> {
     if bundled.exists() {
         return Some(bundled);
     }
-    let dev = Path::new(env!("CARGO_MANIFEST_DIR")).join("engine/.build/release/tamka-engine");
-    dev.exists().then_some(dev)
+    // A dev build runs from target/…/release/: look for the engine next to the sources,
+    // found from the executable rather than a path compiled into the binary.
+    exe.ancestors()
+        .skip(1)
+        .take(5)
+        .map(|dir| dir.join("engine/.build/release/tamka-engine"))
+        .find(|p| p.exists())
 }
 
 /// Load the model in the background so the first dictation is instant.
