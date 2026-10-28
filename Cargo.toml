@@ -1,6 +1,6 @@
 [package]
 name = "tamka"
-version = "0.1.2"
+version = "0.1.3"
 edition = "2024"
 description = "Dictation for Apple silicon Macs that types what you say at the cursor"
 license = "GPL-3.0-or-later"
