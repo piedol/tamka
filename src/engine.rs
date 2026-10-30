@@ -10,6 +10,7 @@ use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, Command, Stdio};
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicU32, AtomicUsize, Ordering};
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError};
 use std::time::{Duration, Instant};
 
@@ -36,6 +37,15 @@ pub const NOT_DOWNLOADED: &str = "Download a speech model in Settings first.";
 
 static HELPER: Mutex<Option<Helper>> = Mutex::new(None);
 static STATUS: Mutex<Status> = Mutex::new(Status::Stopped);
+/// Dictations waiting for the engine. Files wait while this is above zero, so a
+/// dictation goes next instead of queueing behind the rest of a batch.
+static DICTATIONS_WAITING: AtomicUsize = AtomicUsize::new(0);
+/// The helper's pid while it transcribes a file, so Stop can end it.
+static FILE_PID: AtomicU32 = AtomicU32::new(0);
+
+unsafe extern "C" {
+    fn kill(pid: i32, sig: i32) -> i32;
+}
 
 /// First launch can download the model (~600 MB), so allow plenty of time.
 const READY_TIMEOUT: Duration = Duration::from_secs(600);
@@ -151,10 +161,77 @@ fn ensure_running() -> Result<(), String> {
     Ok(())
 }
 
-/// Transcribe a WAV file. Blocks; call from a background thread.
+/// Transcribe a dictation's WAV. Blocks; call from a background thread. It goes ahead
+/// of files waiting in Transcribe Files.
 pub fn transcribe(wav: &Path) -> Result<String, String> {
-    ensure_running()?;
-    let mut guard = HELPER.lock().unwrap();
+    DICTATIONS_WAITING.fetch_add(1, Ordering::SeqCst);
+    let result = ensure_running().map(|()| HELPER.lock().unwrap());
+    DICTATIONS_WAITING.fetch_sub(1, Ordering::SeqCst);
+    run(result?, wav)
+}
+
+/// Transcribe a file for Transcribe Files: waits while a dictation is waiting, and
+/// `interrupt_file` can end it.
+pub fn transcribe_file(wav: &Path) -> Result<String, String> {
+    loop {
+        while DICTATIONS_WAITING.load(Ordering::SeqCst) > 0 {
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        ensure_running()?;
+        let guard = HELPER.lock().unwrap();
+        if DICTATIONS_WAITING.load(Ordering::SeqCst) > 0 {
+            continue;
+        }
+        let pid = guard.as_ref().map_or(0, |h| h.child.id());
+        FILE_PID.store(pid, Ordering::SeqCst);
+        let result = run(guard, wav);
+        FILE_PID.store(0, Ordering::SeqCst);
+        return result;
+    }
+}
+
+/// Stop the file being transcribed by ending the helper; it's started again for the
+/// next dictation. Does nothing while no file is being transcribed.
+pub fn interrupt_file() {
+    let pid = FILE_PID.swap(0, Ordering::SeqCst);
+    if pid != 0 {
+        // SAFETY: plain kill(2) on our own helper's pid.
+        unsafe { kill(pid as i32, 9) };
+    }
+}
+
+/// Read the sound from an audio or video file into a 16 kHz mono WAV at `out`
+/// (`tamka-engine decode`, a separate short-lived process, so it never waits for the
+/// model). Returns the length in seconds. `started` gets the process id, so Stop can end it.
+pub fn decode(input: &Path, out: &Path, started: impl FnOnce(u32)) -> Result<f64, String> {
+    let path = helper_path().ok_or("The speech engine (tamka-engine) is missing from the app.")?;
+    let child = Command::new(&path)
+        .arg("decode")
+        .arg(input)
+        .arg(out)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|e| format!("Couldn't start the speech engine: {e}"))?;
+    started(child.id());
+    let output = child.wait_with_output().map_err(|e| e.to_string())?;
+    if !output.status.success() {
+        let msg = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        return Err(if msg.is_empty() { "Tamka can't read this file.".into() } else { msg });
+    }
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let seconds = stdout
+        .lines()
+        .filter_map(|l| l.find("{\"").map(|i| &l[i..]))
+        .filter_map(|l| serde_json::from_str::<serde_json::Value>(l).ok())
+        .find_map(|v| v.get("seconds").and_then(|s| s.as_f64()))
+        .unwrap_or(0.0);
+    Ok(seconds)
+}
+
+/// Send one request to the running helper and wait for its answer.
+fn run(mut guard: std::sync::MutexGuard<'_, Option<Helper>>, wav: &Path) -> Result<String, String> {
     let helper = guard.as_mut().ok_or("The speech engine isn't running.")?;
     let request = serde_json::json!({ "wav": wav.to_string_lossy() }).to_string();
     let sent = writeln!(helper.stdin, "{request}").and_then(|_| helper.stdin.flush());

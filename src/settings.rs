@@ -58,6 +58,30 @@ pub struct Settings {
     pub check_updates: bool,
     /// When the last update check got an answer, in seconds since 1970. 0 = never.
     pub last_update_check: u64,
+    /// Transcribe Files shows every file's text in one box instead of a row per file.
+    pub files_combined: bool,
+    /// Parakeet models added from Hugging Face (by link, or from New in Settings › Models).
+    pub custom_models: Vec<CustomModel>,
+    /// Models FluidInference publishes that Tamka can run and that aren't added yet.
+    pub new_models: Vec<CustomModel>,
+    /// Ask Hugging Face once a day for new Parakeet models.
+    pub look_for_models: bool,
+    /// When that last got an answer, in seconds since 1970. 0 = never.
+    pub last_model_check: u64,
+}
+
+/// A Parakeet model from Hugging Face that Tamka runs from its own folder.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Default)]
+#[serde(default)]
+pub struct CustomModel {
+    /// "owner/name" on Hugging Face.
+    pub repo: String,
+    /// "v2" or "v3": which Parakeet design it's built like.
+    pub family: String,
+    /// Download size.
+    pub bytes: u64,
+    /// Found by Tamka's daily look for new models (rather than added by link).
+    pub discovered: bool,
 }
 
 impl Default for Settings {
@@ -80,6 +104,11 @@ impl Default for Settings {
             mic_name: String::new(),
             check_updates: true,
             last_update_check: 0,
+            files_combined: false,
+            custom_models: Vec::new(),
+            new_models: Vec::new(),
+            look_for_models: true,
+            last_model_check: 0,
         }
     }
 }

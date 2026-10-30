@@ -5,6 +5,7 @@
 mod app;
 mod audio;
 mod engine;
+mod files;
 mod hotkey;
 mod hud;
 mod keys;
@@ -42,6 +43,12 @@ fn main() {
                     std::process::exit(1);
                 }
             }
+        }
+        // `Tamka --files a.m4a b.mov` (debug builds): open Transcribe Files with these files.
+        #[cfg(debug_assertions)]
+        Some("--files") => {
+            files::open_at_launch(args[1..].iter().map(std::path::PathBuf::from).collect());
+            app::run()
         }
         _ => app::run(),
     }

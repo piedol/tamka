@@ -17,7 +17,7 @@ use objc2_service_management::{SMAppService, SMAppServiceStatus};
 
 use crate::permissions::{self, Mic};
 use crate::util::{self, ns};
-use crate::{audio, engine, hotkey, hud, models, paste, settings, settings_window, text, ui, update_ui};
+use crate::{audio, engine, files, hotkey, hud, models, paste, settings, settings_window, text, ui, update_ui};
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 enum Phase {
@@ -36,6 +36,7 @@ mod tag {
     pub const ALLOW_MIC: isize = 9;
     /// Check for Updates…, Update to Tamka X…, or the install in progress.
     pub const UPDATE: isize = 10;
+    pub const FILES: isize = 11;
     /// Microphone menu items: MIC + index into `MIC_MENU`.
     pub const MIC: isize = 50;
     pub const RECENT: isize = 100;
@@ -142,6 +143,9 @@ pub fn launched(mtm: MainThreadMarker) {
     audio::watch_inputs(inputs_changed);
     util::main_after(1.0, audio::prewarm);
     update_ui::launched();
+    files::launched();
+    // Look for new Parakeet models once a day (if that's on), starting a little after launch.
+    util::main_after(30.0, || models::schedule_checks(settings_window::models_checked));
     util::log(format!("launched, engine '{}', shortcut {}", s.engine, s.shortcut.label()));
 }
 
@@ -268,6 +272,11 @@ pub fn menu_will_open() {
     dictate.setEnabled(enabled);
     set_key_equivalent(&dictate, s.shortcut);
     menu.addItem(&dictate);
+    let files_item = menu_item(mtm, "Transcribe Files…", tag::FILES);
+    if let Some(subtitle) = files::menu_subtitle() {
+        files_item.setSubtitle(Some(&ns(&subtitle)));
+    }
+    menu.addItem(&files_item);
     menu.addItem(&NSMenuItem::separatorItem(mtm));
 
     // Recent: one click copies.
@@ -410,7 +419,7 @@ pub fn input_lost() {
     finish();
 }
 
-/// `tamka://toggle` (same as the shortcut), `tamka://cancel`, `tamka://retry`,
+/// `tamka://toggle` (same as the shortcut), `tamka://cancel`, `tamka://retry`, `tamka://files`,
 /// `tamka://settings[-models|-text]`, `tamka://reset-indicator`, and `tamka://hud-demo`,
 /// which cycles the indicator's states for a few seconds.
 pub fn open_url(host: &str) {
@@ -418,6 +427,7 @@ pub fn open_url(host: &str) {
         "toggle" => toggle(),
         "cancel" => cancel(),
         "retry" => retry_last(),
+        "files" => files::show(),
         "settings" => settings_window::show(Some(settings_window::TAB_GENERAL)),
         "settings-models" => settings_window::show(Some(settings_window::TAB_MODELS)),
         "settings-text" => settings_window::show(Some(settings_window::TAB_TEXT)),
@@ -475,6 +485,7 @@ pub fn handle_tag(t: isize) {
         }
         tag::ALLOW_MIC => permissions::open_settings("Privacy_Microphone"),
         tag::UPDATE => update_ui::menu_chosen(),
+        tag::FILES => files::show(),
         tag::QUIT => {
             if PHASE.with(Cell::get) == Phase::Recording {
                 audio::cancel();
@@ -518,7 +529,7 @@ pub fn set_login_item(on: bool) -> Result<(), String> {
 /// Nothing would be lost by quitting now: not dictating or transcribing, and no
 /// model downloading. An update waits for this.
 pub fn is_idle() -> bool {
-    PHASE.with(Cell::get) == Phase::Idle && models::downloading().is_none()
+    PHASE.with(Cell::get) == Phase::Idle && models::downloading().is_none() && !files::busy()
 }
 
 fn set_phase(p: Phase) {

@@ -7,6 +7,9 @@
 //   tamka-engine apple            (SpeechTranscriber, no vocabulary support)
 //   tamka-engine apple-dictation  (DictationTranscriber, takes the glossary as hints)
 //   tamka-engine status | download <model> | remove <model>   (model management)
+//   tamka-engine custom <owner/name>   (a Parakeet model added from Hugging Face)
+//   tamka-engine inspect <owner/name> | discover [known…]   (Hugging Face models Tamka can run)
+//   tamka-engine decode <audio or video file> <out.wav>   (16 kHz mono WAV for Transcribe Files)
 //
 // Protocol (JSON lines; frameworks may print noise to stdout, so readers search for
 // the markers rather than expecting clean lines):
@@ -66,6 +69,18 @@ final class ParakeetEngine: Engine {
         self.boost = boost || safe
         rescorerConfig = safe ? VocabularyRescorer.Config(spotterRescueEnabled: false) : nil
         if self.boost { ctc = try await CtcModels.downloadAndLoad() }
+    }
+
+    /// A model added from Hugging Face (see `CustomModels`), loaded from its own folder.
+    init(custom repo: String) async throws {
+        guard let model = CustomModels.installed(repo) else {
+            fail("NOT_DOWNLOADED This model isn't downloaded yet.")
+        }
+        let models = try AsrModels.loadLocal(from: model.dir, version: model.version)
+        asr = AsrManager(config: .default)
+        try await asr.loadModels(models)
+        boost = false
+        rescorerConfig = nil
     }
 
     func vocabularySession(for prompt: String) async throws -> VocabularyBoostingSession? {
@@ -189,6 +204,9 @@ func modelStatus() async {
     if let loc = await AppleModel.locale() {
         emit(["id": "apple", "downloaded": await AppleModel.isInstalled(loc), "bytes": 0])
     }
+    for repo in CustomModels.all() {
+        emit(["id": "custom \(repo)", "downloaded": true, "bytes": folderBytes(CustomModels.folder(repo))])
+    }
 }
 
 /// `tamka-engine download <model…>`: progress lines {"progress": 0–1, "phase": …},
@@ -209,6 +227,8 @@ func downloadModel(_ model: [String]) async {
                 try await request.downloadAndInstall()
                 ticker.cancel()
             }
+        } else if model.first == "custom", model.count > 1 {
+            try await CustomModels.download(model[1], throttle: ProgressThrottle())
         } else if model.first == "parakeet", model.count > 1, let version = parakeetVersions[model[1]] {
             let throttle = ProgressThrottle()
             _ = try await AsrModels.download(version: version) { p in
@@ -238,6 +258,17 @@ func removeModel(_ model: [String]) async {
     do {
         if model.first == "apple" {
             if let loc = await AppleModel.locale() { _ = await AssetInventory.release(reservedLocale: loc) }
+        } else if model.first == "custom", model.count > 1 {
+            // Also clears a download that was stopped part way.
+            let dir = CustomModels.folder(model[1])
+            let partial = dir.deletingLastPathComponent().appendingPathComponent("." + dir.lastPathComponent + ".partial")
+            for url in [dir, partial] where FileManager.default.fileExists(atPath: url.path) {
+                try FileManager.default.trashItem(at: url, resultingItemURL: nil)
+            }
+            let owner = dir.deletingLastPathComponent()
+            if (try? FileManager.default.contentsOfDirectory(atPath: owner.path))?.isEmpty == true {
+                try? FileManager.default.removeItem(at: owner)
+            }
         } else if model.first == "parakeet", model.count > 1, let version = parakeetVersions[model[1]] {
             let dir = AsrModels.defaultCacheDirectory(for: version)
             if FileManager.default.fileExists(atPath: dir.path) {
@@ -278,6 +309,273 @@ enum EngineError: LocalizedError {
     }
 }
 
+// MARK: Models added from Hugging Face
+
+/// Parakeet models from Hugging Face that use the same Core ML layout as FluidAudio's
+/// own: Preprocessor, Encoder, Decoder and JointDecision (v2) or JointDecisionv3 (v3
+/// and its retrains), plus parakeet_vocab.json. Each is kept in
+/// ~/Library/Application Support/Tamka/Models/<owner>/<name>/ with a tamka-model.json
+/// that records which design it uses.
+enum CustomModels {
+    struct Plan {
+        let repo: String
+        let family: String  // "v2" or "v3"
+        let files: [(path: String, size: Int64)]  // repo paths
+        let prefix: String  // folder inside the repo holding the model, "" at the top
+        var bytes: Int64 { files.reduce(0) { $0 + $1.size } }
+    }
+
+    struct Installed {
+        let dir: URL
+        let family: String
+        var version: AsrModelVersion { family == "v2" ? .v2 : .v3 }
+    }
+
+    static var root: URL {
+        FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Application Support/Tamka/Models", isDirectory: true)
+    }
+
+    static func folder(_ repo: String) -> URL { root.appendingPathComponent(repo, isDirectory: true) }
+
+    static func installed(_ repo: String) -> Installed? {
+        let dir = folder(repo)
+        guard let data = try? Data(contentsOf: dir.appendingPathComponent("tamka-model.json")),
+              let info = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let family = info["family"] as? String
+        else { return nil }
+        return Installed(dir: dir, family: family)
+    }
+
+    /// Every model downloaded this way, as "owner/name".
+    static func all() -> [String] {
+        let fm = FileManager.default
+        guard let owners = try? fm.contentsOfDirectory(atPath: root.path) else { return [] }
+        var found: [String] = []
+        for owner in owners.sorted() where !owner.hasPrefix(".") {
+            let names = (try? fm.contentsOfDirectory(atPath: root.appendingPathComponent(owner).path)) ?? []
+            for name in names.sorted() where !name.hasPrefix(".") && installed("\(owner)/\(name)") != nil {
+                found.append("\(owner)/\(name)")
+            }
+        }
+        return found
+    }
+
+    static func get(_ url: URL) async throws -> Data {
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 30
+        let (data, response) = try await URLSession.shared.data(for: request)
+        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        if status == 404 || status == 401 {
+            throw EngineError.message("Hugging Face has no public model at that link.")
+        }
+        guard status == 200 else { throw EngineError.message("Hugging Face answered with error \(status). Try again later.") }
+        return data
+    }
+
+    /// Read the model's file list (and its vocabulary, to tell v2 from v3) and work out
+    /// what to download. Throws a plain explanation when Tamka can't run it.
+    static func plan(_ repo: String) async throws -> Plan {
+        guard let url = URL(string: "https://huggingface.co/api/models/\(repo)/tree/main?recursive=true") else {
+            throw EngineError.message("That isn't a Hugging Face model link.")
+        }
+        let data = try await get(url)
+        guard let items = try JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
+            throw EngineError.message("Hugging Face sent a file list Tamka couldn't read.")
+        }
+        var files: [String: Int64] = [:]
+        for item in items where item["type"] as? String == "file" {
+            guard let path = item["path"] as? String else { continue }
+            let lfs = (item["lfs"] as? [String: Any])?["size"] as? NSNumber
+            files[path] = (lfs ?? item["size"] as? NSNumber)?.int64Value ?? 0
+        }
+        func has(_ component: String, _ prefix: String) -> Bool {
+            files.keys.contains { $0.hasPrefix(prefix + component + "/") }
+        }
+        // The model may sit at the top of the repo or in a folder of its own.
+        let prefixes = Set(files.keys.compactMap { path -> String? in
+            guard let r = path.range(of: "Preprocessor.mlmodelc/") else { return nil }
+            return String(path[..<r.lowerBound])
+        }).sorted { $0.count < $1.count }
+        guard !prefixes.isEmpty else {
+            throw EngineError.message(
+                "This isn't a Core ML Parakeet model Tamka can run. Tamka needs the Core ML files (Preprocessor, Encoder, Decoder and JointDecision) that FluidInference's Parakeet models use.")
+        }
+        for prefix in prefixes {
+            let joint: String
+            if has("JointDecisionv3.mlmodelc", prefix) { joint = "JointDecisionv3.mlmodelc" }
+            else if has("JointDecision.mlmodelc", prefix) { joint = "JointDecision.mlmodelc" }
+            else { continue }
+            let vocab = prefix + "parakeet_vocab.json"
+            guard has("Encoder.mlmodelc", prefix), has("Decoder.mlmodelc", prefix), files[vocab] != nil else { continue }
+            // v2 has 1,024 tokens before its blank; v3 and its retrains have 8,192.
+            guard let vocabURL = URL(string: "https://huggingface.co/\(repo)/resolve/main/\(vocab)") else { continue }
+            let tokens = (try? JSONSerialization.jsonObject(with: try await get(vocabURL)) as? [String: Any])?.count ?? 0
+            let family: String
+            if joint == "JointDecisionv3.mlmodelc", tokens >= 8192 { family = "v3" }
+            else if joint == "JointDecision.mlmodelc", (1024..<2048).contains(tokens) { family = "v2" }
+            else { continue }
+            let wanted = ["Preprocessor.mlmodelc/", "Encoder.mlmodelc/", "Decoder.mlmodelc/", joint + "/"].map { prefix + $0 }
+            let picked = files.filter { path, _ in path == vocab || wanted.contains { path.hasPrefix($0) } }
+                .map { (path: $0.key, size: $0.value) }
+                .sorted { $0.path < $1.path }
+            return Plan(repo: repo, family: family, files: picked, prefix: prefix)
+        }
+        throw EngineError.message(
+            "This Parakeet model uses a design Tamka's engine doesn't support yet. Tamka runs models built like Parakeet v2 or v3.")
+    }
+
+    /// Download the planned files into a temporary folder, check the model loads, then
+    /// move it into place. Progress lines as for the built-in models.
+    static func download(_ repo: String, throttle: ProgressThrottle) async throws {
+        throttle.emit(0, "preparing")
+        let plan = try await plan(repo)
+        let fm = FileManager.default
+        let final = folder(repo)
+        let partial = final.deletingLastPathComponent().appendingPathComponent("." + final.lastPathComponent + ".partial")
+        try? fm.removeItem(at: partial)
+        try fm.createDirectory(at: partial, withIntermediateDirectories: true)
+        let total = max(plan.bytes, 1)
+        var done: Int64 = 0
+        for file in plan.files {
+            let relative = String(file.path.dropFirst(plan.prefix.count))
+            let target = partial.appendingPathComponent(relative)
+            try fm.createDirectory(at: target.deletingLastPathComponent(), withIntermediateDirectories: true)
+            guard let url = URL(string: "https://huggingface.co/\(repo)/resolve/main/\(file.path)") else { continue }
+            let base = done
+            try await fetch(url, to: target) { received in
+                throttle.emit(Double(base + received) / Double(total) / 2, "downloading")
+            }
+            done += file.size
+        }
+        let info: [String: Any] = ["repo": repo, "family": plan.family, "bytes": plan.bytes]
+        try JSONSerialization.data(withJSONObject: info).write(to: partial.appendingPathComponent("tamka-model.json"))
+        // Load it once: proves it works and prepares it for the Neural Engine, so the first
+        // dictation doesn't wait.
+        throttle.emit(1, "optimizing")
+        do {
+            _ = try AsrModels.loadLocal(from: partial, version: plan.family == "v2" ? .v2 : .v3)
+        } catch {
+            try? fm.trashItem(at: partial, resultingItemURL: nil)
+            throw EngineError.message("The model downloaded but didn't load: \(error.localizedDescription)")
+        }
+        if fm.fileExists(atPath: final.path) { try fm.trashItem(at: final, resultingItemURL: nil) }
+        try fm.moveItem(at: partial, to: final)
+    }
+
+    /// One file, reporting bytes received so far.
+    static func fetch(_ url: URL, to target: URL, progress: @escaping @Sendable (Int64) -> Void) async throws {
+        try await withCheckedThrowingContinuation { (done: CheckedContinuation<Void, Error>) in
+            let box = TaskBox()
+            let task = URLSession.shared.downloadTask(with: url) { temp, response, error in
+                box.timer?.cancel()
+                let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+                if let error { return done.resume(throwing: error) }
+                guard status == 200, let temp else {
+                    return done.resume(throwing: EngineError.message("Downloading \(url.lastPathComponent) failed (error \(status))."))
+                }
+                do {
+                    try? FileManager.default.removeItem(at: target)
+                    try FileManager.default.moveItem(at: temp, to: target)
+                    done.resume()
+                } catch {
+                    done.resume(throwing: error)
+                }
+            }
+            let timer = DispatchSource.makeTimerSource(queue: .global())
+            timer.schedule(deadline: .now() + 0.25, repeating: 0.25)
+            timer.setEventHandler { progress(task.countOfBytesReceived) }
+            box.timer = timer
+            timer.resume()
+            task.resume()
+        }
+    }
+
+    final class TaskBox: @unchecked Sendable { var timer: DispatchSourceTimer? }
+
+    /// Parakeet models FluidInference publishes that Tamka can run, other than the ones
+    /// already in its list.
+    static func discover(skipping known: Set<String>) async throws -> [Plan] {
+        guard let url = URL(string: "https://huggingface.co/api/models?author=FluidInference&search=parakeet&limit=100")
+        else { return [] }
+        let data = try await get(url)
+        let listed = (try JSONSerialization.jsonObject(with: data) as? [[String: Any]]) ?? []
+        var found: [Plan] = []
+        for item in listed {
+            guard let id = item["id"] as? String, id.lowercased().hasSuffix("coreml"), !known.contains(id) else { continue }
+            if let plan = try? await plan(id) { found.append(plan) }
+        }
+        return found
+    }
+}
+
+// MARK: Decoding files (Transcribe Files)
+
+/// Read the sound from any audio or video file AVFoundation can open (m4a, mp3, wav,
+/// aiff, flac, caf, mov, mp4, …), mix every audio track down to 16 kHz mono and write
+/// it as a 16-bit WAV, the format the engines read. Returns the length in seconds.
+func decode(_ input: URL, to output: URL) async throws -> Double {
+    let asset = AVURLAsset(url: input)
+    let tracks: [AVAssetTrack]
+    do {
+        tracks = try await asset.loadTracks(withMediaType: .audio)
+    } catch {
+        throw EngineError.message("Tamka can't open this file.")
+    }
+    guard !tracks.isEmpty else { throw EngineError.message("This file has no sound to transcribe.") }
+    let reader = try AVAssetReader(asset: asset)
+    let out = AVAssetReaderAudioMixOutput(audioTracks: tracks, audioSettings: [
+        AVFormatIDKey: kAudioFormatLinearPCM,
+        AVSampleRateKey: 16_000,
+        AVNumberOfChannelsKey: 1,
+        AVLinearPCMBitDepthKey: 16,
+        AVLinearPCMIsFloatKey: false,
+        AVLinearPCMIsBigEndianKey: false,
+        AVLinearPCMIsNonInterleaved: false,
+    ])
+    guard reader.canAdd(out) else { throw EngineError.message("Tamka can't read the sound in this file.") }
+    reader.add(out)
+    guard reader.startReading() else {
+        throw EngineError.message(reader.error?.localizedDescription ?? "Tamka can't read the sound in this file.")
+    }
+
+    FileManager.default.createFile(atPath: output.path, contents: nil)
+    let file = try FileHandle(forWritingTo: output)
+    defer { try? file.close() }
+    try file.write(contentsOf: wavHeader(dataBytes: 0))
+    var bytes: UInt32 = 0
+    while let buffer = out.copyNextSampleBuffer() {
+        guard let block = CMSampleBufferGetDataBuffer(buffer) else { continue }
+        let length = CMBlockBufferGetDataLength(block)
+        var data = Data(count: length)
+        let status = data.withUnsafeMutableBytes { raw in
+            CMBlockBufferCopyDataBytes(block, atOffset: 0, dataLength: length, destination: raw.baseAddress!)
+        }
+        guard status == kCMBlockBufferNoErr else { continue }
+        try file.write(contentsOf: data)
+        bytes &+= UInt32(clamping: length)
+    }
+    if reader.status == .failed {
+        throw EngineError.message(reader.error?.localizedDescription ?? "Tamka couldn't read the whole file.")
+    }
+    guard bytes > 0 else { throw EngineError.message("This file has no sound to transcribe.") }
+    try file.seek(toOffset: 0)
+    try file.write(contentsOf: wavHeader(dataBytes: bytes))
+    return Double(bytes) / 32_000
+}
+
+/// A 44-byte header for 16 kHz, 16-bit mono PCM.
+func wavHeader(dataBytes: UInt32) -> Data {
+    var d = Data()
+    func u32(_ v: UInt32) { withUnsafeBytes(of: v.littleEndian) { d.append(contentsOf: $0) } }
+    func u16(_ v: UInt16) { withUnsafeBytes(of: v.littleEndian) { d.append(contentsOf: $0) } }
+    d.append(contentsOf: Array("RIFF".utf8)); u32(36 &+ dataBytes)
+    d.append(contentsOf: Array("WAVEfmt ".utf8)); u32(16); u16(1); u16(1)
+    u32(16_000); u32(32_000); u16(2); u16(16)
+    d.append(contentsOf: Array("data".utf8)); u32(dataBytes)
+    return d
+}
+
 // MARK: Main loop
 
 let args = Array(CommandLine.arguments.dropFirst())
@@ -294,6 +592,36 @@ case "download":
 case "remove":
     await removeModel(Array(args.dropFirst()))
     exit(0)
+case "inspect":
+    // `tamka-engine inspect <owner/name>`: whether Tamka can run a Hugging Face model.
+    guard args.count == 2 else { fail("usage: tamka-engine inspect <owner/name>") }
+    do {
+        let plan = try await CustomModels.plan(args[1])
+        emit(["repo": plan.repo, "family": plan.family, "bytes": plan.bytes])
+    } catch {
+        emit(["error": error.localizedDescription])
+    }
+    exit(0)
+case "discover":
+    // `tamka-engine discover [known repos…]`: FluidInference's other Parakeet models Tamka can run.
+    do {
+        for plan in try await CustomModels.discover(skipping: Set(args.dropFirst())) {
+            emit(["repo": plan.repo, "family": plan.family, "bytes": plan.bytes])
+        }
+        emit(["done": true])
+    } catch {
+        emit(["error": error.localizedDescription])
+    }
+    exit(0)
+case "decode":
+    guard args.count == 3 else { fail("usage: tamka-engine decode <audio or video file> <out.wav>") }
+    do {
+        let seconds = try await decode(URL(fileURLWithPath: args[1]), to: URL(fileURLWithPath: args[2]))
+        emit(["seconds": seconds])
+        exit(0)
+    } catch {
+        fail(error.localizedDescription)
+    }
 default:
     break
 }
@@ -307,6 +635,9 @@ case "parakeet":
     guard args.count > 1, let v = versions[args[1]] else { fail("parakeet needs one of \(versions.keys.sorted())") }
     engine = try await ParakeetEngine(
         version: v, boost: args.contains("--boost"), safe: args.contains("--boost-safe"))
+case "custom":
+    guard args.count > 1 else { fail("custom needs the model's owner/name") }
+    engine = try await ParakeetEngine(custom: args[1])
 case "apple":
     engine = try await AppleEngine(dictation: false)
 case "apple-dictation":

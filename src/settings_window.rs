@@ -26,7 +26,7 @@ use objc2_foundation::{
 
 use crate::keys::{self, vk, Shortcut};
 use crate::permissions::{self, Mic};
-use crate::models::{self, CATALOG};
+use crate::models;
 use crate::settings::{self, Rule};
 use crate::util::{self, ns};
 use crate::{app, audio, engine, hotkey, ui};
@@ -50,9 +50,14 @@ const STOP_SOUND: isize = 26;
 const MIC: isize = 27;
 const ADD_REMOVE: isize = 30;
 const RESTORE: isize = 31;
+const ADD_MODEL: isize = 32;
+const LOOK_MODELS: isize = 33;
+const CHECK_MODELS: isize = 34;
 /// Model rows: MODEL_USE + index (radio), MODEL_ACTION + index (Download / Remove / Cancel).
 const MODEL_USE: isize = 100;
 const MODEL_ACTION: isize = 200;
+/// New models found on Hugging Face: NEW_ACTION + index (Download).
+const NEW_ACTION: isize = 300;
 /// Table cells: CELL + row * 2 + column.
 const CELL: isize = 10_000;
 
@@ -249,6 +254,11 @@ struct State {
     ax: Status,
     engine: Status,
     rows: Vec<ModelRow>,
+    /// The models the rows show, in order (`models::all()` when the tab was built).
+    list: Vec<&'static models::Model>,
+    /// The New section's models, in order.
+    new_list: Vec<settings::CustomModel>,
+    check_note: Retained<NSTextField>,
     storage_note: Retained<NSTextField>,
     table: Retained<NSTableView>,
     search: Retained<NSSearchField>,
@@ -522,34 +532,7 @@ pub fn show(tab: Option<isize>) {
     g.note("Events and timings only. Tamka never logs what you said.");
 
     // Models.
-    let md = Form::new(inner_w, inner_h);
-    let intro = NSTextField::wrappingLabelWithString(
-        &ns("Speech models download once, then run entirely on your Mac. Start with the recommended one; add or remove others any time."),
-        mtm,
-    );
-    intro.setFont(Some(&NSFont::systemFontOfSize(12.0)));
-    intro.setTextColor(Some(&NSColor::secondaryLabelColor()));
-    intro.setFrame(rect(X, 16.0, inner_w - 2.0 * X, 32.0));
-    md.view.addSubview(&intro);
-    let (rows, rows_end) = model_rows(&md, &controller, 60.0, &mut controls);
-    let mut md = md;
-    md.y = rows_end + 14.0;
-    let engine = md.status("In use:", &controller, None);
-    md.y += 2.0;
-    let legend = NSTextField::wrappingLabelWithString(
-        &ns("Grades come from tests on 117 public recordings. Size: download and memory. Speed: how fast text appears after you stop. Accuracy: how few words it gets wrong. Point at a grade for its numbers."),
-        mtm,
-    );
-    legend.setFont(Some(&NSFont::systemFontOfSize(11.0)));
-    legend.setTextColor(Some(&NSColor::secondaryLabelColor()));
-    legend.setFrame(rect(X, md.y, inner_w - 2.0 * X, 44.0));
-    md.view.addSubview(&legend);
-    md.y += 50.0;
-    let storage_note = NSTextField::wrappingLabelWithString(&ns(""), mtm);
-    storage_note.setFont(Some(&NSFont::systemFontOfSize(11.0)));
-    storage_note.setTextColor(Some(&NSColor::secondaryLabelColor()));
-    storage_note.setFrame(rect(X, md.y, inner_w - 2.0 * X, 30.0));
-    md.view.addSubview(&storage_note);
+    let md = models_tab(&controller, inner_w, inner_h, &mut controls);
 
     // Text: cleanup, then spoken commands.
     let mut cmd = Form::new(inner_w, inner_h);
@@ -647,10 +630,10 @@ pub fn show(tab: Option<isize>) {
     restore.setFrame(rect(inner_w - X - 150.0, bar_y - 2.0, 150.0, 28.0));
     cmd.view.addSubview(&restore);
 
-    for (title, form) in [("General", &g), ("Models", &md), ("Text", &cmd)] {
+    for (title, view) in [("General", as_view(&g.view)), ("Models", as_view(&md.scroll)), ("Text", as_view(&cmd.view))] {
         let item = unsafe { NSTabViewItem::initWithIdentifier(NSTabViewItem::alloc(), Some(&ns(title))) };
         item.setLabel(&ns(title));
-        item.setView(Some(&form.view));
+        item.setView(Some(&view));
         tabs.addTabViewItem(&item);
     }
     window.setContentView(Some(&tabs));
@@ -678,9 +661,12 @@ pub fn show(tab: Option<isize>) {
             key_note,
             mic,
             ax,
-            engine,
-            rows,
-            storage_note,
+            engine: md.engine,
+            rows: md.rows,
+            list: md.list,
+            new_list: md.new_list,
+            check_note: md.check_note,
+            storage_note: md.storage_note,
             table,
             search,
             count,
@@ -872,6 +858,24 @@ fn changed(id: isize) {
         }
         x if (MODEL_USE..MODEL_USE + 50).contains(&x) => use_model((x - MODEL_USE) as usize),
         x if (MODEL_ACTION..MODEL_ACTION + 50).contains(&x) => model_action((x - MODEL_ACTION) as usize),
+        x if (NEW_ACTION..NEW_ACTION + 50).contains(&x) => download_new((x - NEW_ACTION) as usize),
+        ADD_MODEL => add_model(),
+        LOOK_MODELS => {
+            let on = is_on(id);
+            settings::update(|s| s.look_for_models = on);
+            if on {
+                models::check_for_new(false, models_checked);
+            }
+        }
+        CHECK_MODELS => {
+            if let Some(n) = STATE.with(|st| st.borrow().as_ref().map(|st| st.check_note.clone())) {
+                n.setStringValue(&ns("Checking Hugging Face…"));
+            }
+            if let Some(b) = control::<NSButton>(CHECK_MODELS) {
+                b.setEnabled(false);
+            }
+            models::check_for_new(true, models_checked);
+        }
         FILLERS => {
             let on = is_on(id);
             settings::update(|s| s.remove_fillers = on);
@@ -930,6 +934,7 @@ fn model_rows(
     form: &Form,
     controller: &Controller,
     y0: f64,
+    list: &[&'static models::Model],
     controls: &mut HashMap<isize, Retained<NSView>>,
 ) -> (Vec<ModelRow>, f64) {
     let mtm = mtm();
@@ -951,7 +956,7 @@ fn model_rows(
     let mut y = y0 + 20.0;
     separator(view, y, form.width);
     let mut rows = Vec::new();
-    for (i, m) in CATALOG.iter().enumerate() {
+    for (i, m) in list.iter().enumerate() {
         let radio = unsafe {
             NSButton::radioButtonWithTitle_target_action(&ns(""), Some(controller), Some(sel!(control:)), mtm)
         };
@@ -1025,7 +1030,7 @@ fn refresh_models() {
         let st = st.borrow();
         let Some(st) = st.as_ref() else { return };
         let mut total: u64 = 0;
-        for (i, m) in CATALOG.iter().enumerate() {
+        for (i, m) in st.list.iter().enumerate() {
             let Some(row) = st.rows.get(i) else { continue };
             let known = installed.is_some();
             let info = installed.as_ref().and_then(|all| all.get(m.id)).cloned().unwrap_or_default();
@@ -1086,19 +1091,24 @@ fn refresh_models() {
         }
         let note = if total > 0 {
             format!(
-                "Downloaded models use {} in ~/Library/Application Support/FluidAudio/Models. Removed models go to the Trash.",
+                "Downloaded models use {}. Tamka's own are in ~/Library/Application Support/FluidAudio/Models, and ones added from Hugging Face are in ~/Library/Application Support/Tamka/Models. Removed models go to the Trash.",
                 models::format_bytes(total)
             )
         } else {
-            "Downloaded models are stored in ~/Library/Application Support/FluidAudio/Models.".to_string()
+            "Tamka's own models are stored in ~/Library/Application Support/FluidAudio/Models, and ones added from Hugging Face in ~/Library/Application Support/Tamka/Models.".to_string()
         };
         st.storage_note.setStringValue(&ns(&note));
+        st.check_note.setStringValue(&ns(&check_text(&s)));
     });
 }
 
 /// Radio: switch to a downloaded model.
+fn listed(i: usize) -> Option<&'static models::Model> {
+    STATE.with(|st| st.borrow().as_ref().and_then(|st| st.list.get(i).copied()))
+}
+
 fn use_model(i: usize) {
-    let Some(m) = CATALOG.get(i) else { return };
+    let Some(m) = listed(i) else { return };
     if models::is_downloaded(m.id) != Some(true) {
         return;
     }
@@ -1110,7 +1120,7 @@ fn use_model(i: usize) {
 
 /// The row's button: Download, Cancel, or Remove….
 fn model_action(i: usize) {
-    let Some(m) = CATALOG.get(i) else { return };
+    let Some(m) = listed(i) else { return };
     if models::downloading().is_some_and(|d| d.id == m.id) {
         models::cancel();
         util::main_after(0.3, refresh_models);
@@ -1139,8 +1149,15 @@ fn start_download(m: &'static models::Model) {
                     }
                     crate::hud::toast(&format!("{} is ready", m.name), None);
                 }
-                Err(e) if e.is_empty() => {} // cancelled
-                Err(e) => crate::hud::notice(&format!("{} didn't finish downloading", m.name), Some(&e)),
+                Err(e) => {
+                    if !e.is_empty() {
+                        crate::hud::notice(&format!("{} didn't finish downloading", m.name), Some(&e));
+                    }
+                    // A model added from Hugging Face is only listed once it's downloaded.
+                    if m.custom {
+                        forget_custom(m.repo);
+                    }
+                }
             }
             refresh();
         },
@@ -1157,24 +1174,345 @@ fn confirm_remove(m: &'static models::Model) {
         .unwrap_or_default();
     let alert = NSAlert::new(mtm());
     alert.setMessageText(&ns(&format!("Remove {}?", m.name)));
-    alert.setInformativeText(&ns(&format!(
-        "Its files ({size}) go to the Trash. You can download it again any time."
-    )));
+    alert.setInformativeText(&ns(&if m.custom {
+        format!("Its files ({size}) go to the Trash. You can add it again from its Hugging Face link.")
+    } else {
+        format!("Its files ({size}) go to the Trash. You can download it again any time.")
+    }));
     alert.addButtonWithTitle(&ns("Remove"));
     alert.addButtonWithTitle(&ns("Cancel"));
     if alert.runModal() != NSAlertFirstButtonReturn {
         return;
     }
     let id = m.id;
+    let (custom, repo) = (m.custom, m.repo);
     std::thread::spawn(move || {
         let result = models::remove(id);
         util::main_async(move || {
-            if let Err(e) = result {
-                crate::hud::notice("Couldn't remove the model", Some(&e));
+            match result {
+                Err(e) => crate::hud::notice("Couldn't remove the model", Some(&e)),
+                Ok(()) if custom => forget_custom(repo),
+                Ok(()) => {}
             }
             refresh();
         });
     });
+}
+
+// ---------------------------------------------------------------- models from Hugging Face
+
+/// The Models tab, in a scroll view since added models can make it taller than the window.
+struct ModelsTab {
+    scroll: Retained<NSScrollView>,
+    rows: Vec<ModelRow>,
+    list: Vec<&'static models::Model>,
+    new_list: Vec<settings::CustomModel>,
+    engine: Status,
+    check_note: Retained<NSTextField>,
+    storage_note: Retained<NSTextField>,
+}
+
+fn models_tab(
+    controller: &Controller,
+    inner_w: f64,
+    inner_h: f64,
+    controls: &mut HashMap<isize, Retained<NSView>>,
+) -> ModelsTab {
+    let mtm = mtm();
+    let s = settings::get();
+    let mut md = Form::new(inner_w, inner_h);
+    let intro = NSTextField::wrappingLabelWithString(
+        &ns("Speech models download once, then run entirely on your Mac. Start with the recommended one; add or remove others any time."),
+        mtm,
+    );
+    intro.setFont(Some(&NSFont::systemFontOfSize(12.0)));
+    intro.setTextColor(Some(&NSColor::secondaryLabelColor()));
+    intro.setFrame(rect(X, 16.0, inner_w - 2.0 * X, 32.0));
+    md.view.addSubview(&intro);
+    let list = models::all();
+    let (rows, rows_end) = model_rows(&md, controller, 60.0, &list, controls);
+    md.y = rows_end + 12.0;
+
+    let add = push_button("Add Model from Hugging Face…", ADD_MODEL, controller);
+    add.setToolTip(Some(&ns("Add a Parakeet model by its Hugging Face link")));
+    let aw = add.fittingSize().width.ceil() + 8.0;
+    add.setFrame(rect(X - 6.0, md.y, aw, 28.0));
+    md.view.addSubview(&add);
+    md.y += 40.0;
+
+    // New: models Tamka found on Hugging Face and doesn't list yet.
+    let new_list = s.new_models.clone();
+    if !new_list.is_empty() {
+        let title = NSTextField::labelWithString(&ns("New from FluidInference"), mtm);
+        title.setFont(Some(&NSFont::systemFontOfSize_weight(13.0, unsafe { NSFontWeightSemibold })));
+        title.setFrame(rect(X, md.y, inner_w - 2.0 * X, 18.0));
+        md.view.addSubview(&title);
+        md.y += 22.0;
+        separator(&md.view, md.y, inner_w);
+        let action_x = inner_w - X - ACTION_W;
+        for (i, c) in new_list.iter().enumerate() {
+            let name = NSTextField::labelWithString(&ns(&models::display_name(&c.repo)), mtm);
+            name.setFont(Some(&NSFont::systemFontOfSize_weight(13.0, unsafe { NSFontWeightMedium })));
+            name.setFrame(rect(X + 26.0, md.y + 8.0, action_x - X - 34.0, 18.0));
+            md.view.addSubview(&name);
+            let tagline = small_label(
+                &format!("Built like Parakeet {} · {} · not rated yet", c.family, models::format_bytes(c.bytes)),
+                11.0,
+                true,
+            );
+            tagline.setFrame(rect(X + 26.0, md.y + 27.0, action_x - X - 34.0, 15.0));
+            tagline.setToolTip(Some(&ns(&format!("huggingface.co/{}", c.repo))));
+            md.view.addSubview(&tagline);
+            let download = push_button("Download", NEW_ACTION + i as isize, controller);
+            download.setFrame(rect(action_x, md.y + 10.0, ACTION_W, 28.0));
+            download.setToolTip(Some(&ns("Download it and add it to your models")));
+            md.view.addSubview(&download);
+            controls.insert(NEW_ACTION + i as isize, as_view(&download));
+            md.y += 50.0;
+            separator(&md.view, md.y, inner_w);
+        }
+        md.y += 12.0;
+    }
+
+    let look = checkbox("Look for new Parakeet models once a day", LOOK_MODELS, s.look_for_models, controller);
+    look.setFrame(rect(X, md.y, inner_w - 2.0 * X - 130.0, 20.0));
+    md.view.addSubview(&look);
+    controls.insert(LOOK_MODELS, as_view(&look));
+    let check = push_button("Check Now", CHECK_MODELS, controller);
+    check.setFrame(rect(inner_w - X - 120.0, md.y - 4.0, 120.0, 28.0));
+    md.view.addSubview(&check);
+    controls.insert(CHECK_MODELS, as_view(&check));
+    md.y += 22.0;
+    let check_note = NSTextField::wrappingLabelWithString(&ns(&check_text(&s)), mtm);
+    check_note.setFont(Some(&NSFont::systemFontOfSize(11.0)));
+    check_note.setTextColor(Some(&NSColor::secondaryLabelColor()));
+    check_note.setFrame(rect(X + 20.0, md.y, inner_w - 2.0 * X - 20.0, 30.0));
+    md.view.addSubview(&check_note);
+    md.y += 40.0;
+
+    let engine = md.status("In use:", controller, None);
+    md.y += 2.0;
+    let legend = NSTextField::wrappingLabelWithString(
+        &ns("Grades come from tests on 117 public recordings. Size: download and memory. Speed: how fast text appears after you stop. Accuracy: how few words it gets wrong. Point at a grade for its numbers. Models added from Hugging Face aren't rated."),
+        mtm,
+    );
+    legend.setFont(Some(&NSFont::systemFontOfSize(11.0)));
+    legend.setTextColor(Some(&NSColor::secondaryLabelColor()));
+    legend.setFrame(rect(X, md.y, inner_w - 2.0 * X, 44.0));
+    md.view.addSubview(&legend);
+    md.y += 50.0;
+    let storage_note = NSTextField::wrappingLabelWithString(&ns(""), mtm);
+    storage_note.setFont(Some(&NSFont::systemFontOfSize(11.0)));
+    storage_note.setTextColor(Some(&NSColor::secondaryLabelColor()));
+    storage_note.setFrame(rect(X, md.y, inner_w - 2.0 * X, 44.0));
+    md.view.addSubview(&storage_note);
+    md.y += 56.0;
+
+    let mut frame = md.view.frame();
+    frame.size.height = md.y.max(inner_h);
+    md.view.setFrame(frame);
+    let scroll = NSScrollView::initWithFrame(NSScrollView::alloc(mtm), rect(0.0, 0.0, inner_w, inner_h));
+    scroll.setHasVerticalScroller(true);
+    scroll.setAutohidesScrollers(true);
+    scroll.setDrawsBackground(false);
+    scroll.setBorderType(NSBorderType::NoBorder);
+    scroll.setDocumentView(Some(&md.view));
+    ModelsTab { scroll, rows, list, new_list, engine, check_note, storage_note }
+}
+
+/// "Asks Hugging Face … Last checked 2 h ago."
+fn check_text(s: &settings::Settings) -> String {
+    let base = "Tamka asks Hugging Face for FluidInference's list of Parakeet models. Your speech stays on this Mac.";
+    if s.last_model_check == 0 {
+        return base.to_string();
+    }
+    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs());
+    let ago = match now.saturating_sub(s.last_model_check) {
+        0..60 => "just now".to_string(),
+        n @ 60..3600 => format!("{} min ago", n / 60),
+        n @ 3600..86_400 => format!("{} h ago", n / 3600),
+        n => format!("{} days ago", n / 86_400),
+    };
+    format!("{base} Last checked {ago}.")
+}
+
+/// Build the Models tab again after the list changed (a model added, removed or found).
+pub fn models_changed() {
+    let Some((tabs, controller)) = STATE.with(|st| st.borrow().as_ref().map(|st| (st.tabs.clone(), st._controller.clone())))
+    else {
+        return;
+    };
+    let mut controls = STATE.with(|st| st.borrow_mut().as_mut().map(|st| std::mem::take(&mut st.controls))).unwrap_or_default();
+    controls.retain(|tag, _| {
+        !(MODEL_USE..MODEL_USE + 50).contains(tag)
+            && !(MODEL_ACTION..MODEL_ACTION + 50).contains(tag)
+            && !(NEW_ACTION..NEW_ACTION + 50).contains(tag)
+            && ![LOOK_MODELS, CHECK_MODELS].contains(tag)
+    });
+    let size = tabs.contentRect().size;
+    let md = models_tab(&controller, size.width, size.height, &mut controls);
+    if let Some(item) = tabs.tabViewItems().iter().nth(TAB_MODELS as usize) {
+        item.setView(Some(&md.scroll));
+    }
+    STATE.with(|st| {
+        if let Some(st) = st.borrow_mut().as_mut() {
+            st.controls = controls;
+            st.rows = md.rows;
+            st.list = md.list;
+            st.new_list = md.new_list;
+            st.engine = md.engine;
+            st.check_note = md.check_note;
+            st.storage_note = md.storage_note;
+        }
+    });
+    refresh();
+}
+
+/// Called when a look for new models finishes.
+pub fn models_checked(result: Result<usize, String>) {
+    if let Err(e) = &result
+        && let Some(n) = STATE.with(|st| st.borrow().as_ref().map(|st| st.check_note.clone()))
+    {
+        n.setStringValue(&ns(&format!("Couldn't check: {e}")));
+    }
+    if result.is_ok() {
+        models_changed();
+    } else if let Some(b) = control::<NSButton>(CHECK_MODELS) {
+        b.setEnabled(true);
+    }
+}
+
+/// Take a model added from Hugging Face off the list (after it's removed, or its download
+/// stopped). One Tamka found by itself goes back to New.
+fn forget_custom(repo: &str) {
+    settings::update(|s| {
+        if let Some(i) = s.custom_models.iter().position(|c| c.repo == repo) {
+            let c = s.custom_models.remove(i);
+            if c.discovered && !s.new_models.iter().any(|n| n.repo == c.repo) {
+                s.new_models.push(c);
+            }
+        }
+    });
+    models_changed();
+}
+
+/// Add a model to the list and download it.
+fn add_and_download(c: settings::CustomModel) {
+    let id = format!("custom {}", c.repo);
+    settings::update(|s| {
+        s.new_models.retain(|n| n.repo != c.repo);
+        if !s.custom_models.iter().any(|m| m.repo == c.repo) {
+            s.custom_models.push(c.clone());
+        }
+    });
+    models_changed();
+    if models::is_downloaded(&id) == Some(true) {
+        // Its files are already here (added before, or left from an earlier install).
+        return;
+    }
+    if let Some(m) = models::find(&id) {
+        start_download(m);
+    }
+}
+
+/// For testing Settings without a mouse (debug builds): "click <tag>" or
+/// "add-model <link>" (Add Model without its two dialogs).
+#[cfg(debug_assertions)]
+pub fn debug(command: &str) {
+    if let Some(tag) = command.strip_prefix("click ").and_then(|t| t.trim().parse::<isize>().ok()) {
+        if let Some(b) = control::<NSButton>(tag) {
+            // Checkboxes change state on a real click.
+            if tag == LOOK_MODELS {
+                b.setState(if b.state() == NSControlStateValueOn { NSControlStateValueOff } else { NSControlStateValueOn });
+            }
+        }
+        changed(tag);
+    } else if let Some(link) = command.strip_prefix("add-model ") {
+        let repo = models::parse_link(link).unwrap_or_default();
+        std::thread::spawn(move || {
+            let result = models::inspect(&repo);
+            util::main_async(move || match result {
+                Ok(c) => add_and_download(c),
+                Err(e) => crate::hud::notice("Can't use this model", Some(&e)),
+            });
+        });
+    }
+}
+
+/// New's Download button.
+fn download_new(i: usize) {
+    if models::downloading().is_some() {
+        crate::hud::notice("Another model is downloading", Some("Wait for it to finish first."));
+        return;
+    }
+    let Some(c) = STATE.with(|st| st.borrow().as_ref().and_then(|st| st.new_list.get(i).cloned())) else { return };
+    add_and_download(c);
+}
+
+/// Add Model from Hugging Face…: ask for the link, check the model, then offer to download it.
+fn add_model() {
+    let mtm = mtm();
+    if models::downloading().is_some() {
+        crate::hud::notice("Another model is downloading", Some("Wait for it to finish first."));
+        return;
+    }
+    let alert = NSAlert::new(mtm);
+    alert.setMessageText(&ns("Add a model from Hugging Face"));
+    alert.setInformativeText(&ns(
+        "Paste the model's link, such as huggingface.co/FluidInference/parakeet-redux-coreml. Tamka checks that it can run the model before downloading it. It runs Core ML Parakeet models built like v2 or v3.",
+    ));
+    let field = NSTextField::initWithFrame(NSTextField::alloc(mtm), rect(0.0, 0.0, 340.0, 24.0));
+    field.setPlaceholderString(Some(&ns("huggingface.co/owner/model")));
+    alert.setAccessoryView(Some(&field));
+    alert.addButtonWithTitle(&ns("Check"));
+    alert.addButtonWithTitle(&ns("Cancel"));
+    alert.window().setInitialFirstResponder(Some(&field));
+    if alert.runModal() != NSAlertFirstButtonReturn {
+        return;
+    }
+    let text = field.stringValue().to_string();
+    let Some(repo) = models::parse_link(&text) else {
+        crate::hud::notice("That isn't a Hugging Face model link", Some("It should look like huggingface.co/owner/model."));
+        return;
+    };
+    if let Some(m) = models::all().into_iter().find(|m| m.repo.eq_ignore_ascii_case(&repo)) {
+        crate::hud::notice(&format!("{} is already in your models", m.name), None);
+        return;
+    }
+    crate::hud::toast("Checking the model on Hugging Face…", None);
+    std::thread::spawn(move || {
+        let result = models::inspect(&repo);
+        util::main_async(move || {
+            crate::hud::hide();
+            match result {
+                Ok(c) => confirm_add(c),
+                Err(e) => {
+                    let alert = NSAlert::new(self::mtm());
+                    alert.setAlertStyle(NSAlertStyle::Warning);
+                    alert.setMessageText(&ns(&format!("Tamka can't use {repo}")));
+                    alert.setInformativeText(&ns(&e));
+                    alert.runModal();
+                }
+            }
+        });
+    });
+}
+
+fn confirm_add(c: settings::CustomModel) {
+    let name = models::display_name(&c.repo);
+    let alert = NSAlert::new(mtm());
+    alert.setMessageText(&ns(&format!("Download {name}?")));
+    alert.setInformativeText(&ns(&format!(
+        "It's built like Parakeet {} and is a {} download from huggingface.co/{}. Tamka hasn't rated it, so its grades show as –.",
+        c.family,
+        models::format_bytes(c.bytes),
+        c.repo
+    )));
+    alert.addButtonWithTitle(&ns("Download"));
+    alert.addButtonWithTitle(&ns("Cancel"));
+    if alert.runModal() == NSAlertFirstButtonReturn {
+        add_and_download(c);
+    }
 }
 
 // ---------------------------------------------------------------- shortcut recorder

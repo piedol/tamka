@@ -30,6 +30,7 @@ Before typing, Tamka removes "um" and "uh", collapses stutters, and turns spoken
 ## Contents
 
 - [Dictating](#dictating)
+- [Transcribing files](#transcribing-files)
 - [Features](#features)
 - [Privacy](#privacy)
 - [Accuracy and speed](#accuracy-and-speed)
@@ -54,6 +55,28 @@ Press **Esc** while Tamka is listening to throw the recording away.
 
 ⌃V is the default shortcut. You can pick any combination that includes ⌘, ⌃ or ⌥ in **Settings › General**.
 
+## Transcribing files
+
+Choose **Transcribe Files…** from the menu to turn recordings into text. The window stays above other apps' windows, which makes dragging files onto it from Finder easy.
+
+1. Drop audio or video files on the window, or click **Choose Files…**. Dropping a folder adds the audio and video files inside it.
+2. Tamka transcribes them on your Mac in turn, with the model you've chosen.
+3. Each file's text appears in its own row. Click **Copy** to put it on the clipboard or **Export…** to save it as a text file.
+
+<p align="center">
+  <img src="docs/images/transcribe-files.png" width="520" alt="Transcribe Files with three transcribed recordings: a video, a voice memo and an MP3">
+  <br><sub>Example recordings</sub>
+</p>
+
+- **Separate** shows a row per file. **Combined** shows all the text together, each file under its name, with a shared **Copy** and **Export…**. Switching between them doesn't transcribe anything again.
+- **Export All…** saves each transcript as a text file named after its recording, in a folder you choose. Existing files are kept: a second `Interview.txt` becomes `Interview 2.txt`.
+- Tamka reads the sound from audio files such as M4A (Voice Memos), MP3, WAV, AIFF and FLAC, and from videos such as MOV and MP4. A file without sound is listed with the reason.
+- **Stop** ends the file in progress and skips the files still waiting.
+- Filler words and stutters are removed as your Settings › Text choices say. Spoken commands aren't applied, because in a recording "comma" is usually a word someone said.
+- The dictation shortcut keeps working while files are transcribed. If a file is in progress, your dictation is transcribed right after that file.
+- A 30-minute recording takes about 4 seconds with Parakeet Ultra on an M5 Max.
+- The text stays in the window until you click **Clear** or quit Tamka.
+
 ## Features
 
 ### The indicator
@@ -70,6 +93,7 @@ The menu bar menu shows your last five dictations. Click a dictation to copy it 
 </p>
 
 - **Start Dictation** becomes **Stop and Paste** while you're speaking.
+- **Transcribe Files…** opens the [file window](#transcribing-files).
 - **Transcribe Last Recording Again** runs your last recording through the current model, which is useful after switching models.
 - **Microphone** names the mic the next dictation uses. Choose a mic there, or in Settings › General, and Tamka stays on it whenever it's connected and uses the system default when it isn't. A mic with several channels, such as a DJI Mic receiver in stereo, is mixed down, so both transmitters are heard.
 - **Check for Updates…** looks for a new version. When a new version is out, the item becomes **Update to Tamka X.Y.Z…**.
@@ -91,6 +115,12 @@ The app doesn't include a speech model. On first launch, **Settings › Models**
 | Apple Speech | A+ | B | B | No separate model download; macOS may fetch its language files first |
 
 Size covers the download and the memory the model uses while loaded. Speed is how soon text appears after you stop speaking. Accuracy is the word error rate on everyday speech, measured on the benchmark's clips without its meeting recordings. Hover over a grade in the app to see the measurements behind it.
+
+#### More Parakeet models
+
+- **Add Model from Hugging Face…** in Settings › Models takes a model's link, such as `huggingface.co/FluidInference/parakeet-redux-coreml`. Tamka reads the model's file list first and downloads the model if it can run it: a Core ML Parakeet model built like v2 or v3, in the layout FluidInference uses. That covers many community models, such as versions tuned for other languages. If Tamka can't run a model, it says why.
+- Tamka looks for new Parakeet models from FluidInference once a day. Ones it can run appear under **New from FluidInference** in Settings › Models, with a **Download** button. **Check Now** looks straight away, and you can turn the daily look off.
+- Added models are listed with your other models and show **–** for their grades, because Tamka hasn't measured them. Removing an added model moves its files to the Trash.
 
 ### Text cleanup and spoken commands
 
@@ -132,6 +162,8 @@ Tamka downloads the release from GitHub and installs it only if the download mat
 
 - Speech recognition runs entirely on your Mac. Models download once: Parakeet models from Hugging Face, and Apple Speech's language files from Apple.
 - Tamka checks GitHub once a day for a new version. You can turn this off in Settings › General.
+- Tamka asks Hugging Face once a day for FluidInference's list of Parakeet models. The request sends no audio or text. You can turn this off in Settings › Models.
+- **Transcribe Files** reads your files on your Mac. While a file is being transcribed, its sound is kept in `~/Library/Caches/Tamka/files` and deleted when it's done. Transcripts stay in memory until you clear them or quit Tamka.
 - The microphone is on only while you're dictating.
 - Tamka keeps your last recording at `~/Library/Caches/Tamka/last.wav` for **Transcribe Last Recording Again**. Each new dictation replaces it.
 - The log at `~/Library/Logs/Tamka.log` records events and timings, never your words.
@@ -185,7 +217,7 @@ Tamka has no Dock icon. To start it when you log in, turn on **Launch Tamka at l
 
 1. Turn off **Launch Tamka at login** in Settings › General, then choose **Quit Tamka** from the menu.
 2. Move `/Applications/Tamka.app` to the Trash.
-3. Move these to the Trash: `~/Library/Application Support/Tamka`, `~/Library/Caches/Tamka` and `~/Library/Logs/Tamka.log`.
+3. Move these to the Trash: `~/Library/Application Support/Tamka` (which also holds models added from Hugging Face), `~/Library/Caches/Tamka` and `~/Library/Logs/Tamka.log`.
 4. Downloaded models are in `~/Library/Application Support/FluidAudio/Models` (about 0.4–0.6 GB each). Other apps built on FluidAudio may share that folder, so remove only the models you no longer want.
 5. Remove Tamka from System Settings › Privacy & Security › Accessibility and Microphone.
 
@@ -198,6 +230,8 @@ Tamka has no Dock icon. To start it when you log in, turn on **Launch Tamka at l
 | The indicator covers what you're typing | Drag it somewhere else. It stays where you put it. |
 | Tamka moved to a mic you plugged in | macOS makes a new mic the system default. Choose the mic you want under **Microphone** in the menu, and Tamka stays on it. |
 | The menu says no model is downloaded | Choose **Download a Speech Model…** in the menu. |
+| Transcribe Files says it can't open a file | Tamka reads files that macOS can play. Convert the file to M4A or MP3 and try again. |
+| Tamka can't use a model from Hugging Face | Tamka runs Core ML Parakeet models built like v2 or v3. Models in other formats, such as ONNX, or other designs, such as the 110M and Unified models, don't load. |
 | An update opens the release page instead of installing | Your account can't make changes in the folder Tamka is in. Download the zip from that page and drag **Tamka** into Applications. |
 | Something else goes wrong | Open the activity log from Settings › General. It shows events and timings, never your words. |
 
@@ -216,8 +250,9 @@ The menu bar app is written in Rust against AppKit through [objc2](https://githu
 | `src/app.rs` | The menu bar and the dictation flow: idle, listening, transcribing, paste |
 | `src/hud.rs` | The draggable indicator and notifications |
 | `src/audio.rs` | Microphone capture through Core Audio's input unit, only while listening |
-| `src/engine.rs` | Starts and supervises the speech helper |
-| `src/models.rs` | The model catalog and grades; download, removal and status |
+| `src/engine.rs` | Starts and supervises the speech helper; dictations go ahead of waiting files |
+| `src/files.rs` | The Transcribe Files window and its queue |
+| `src/models.rs` | The model catalog and grades; download, removal and status; models from Hugging Face |
 | `src/text.rs` | Filler removal, stutter cleanup, spoken commands and spacing |
 | `src/paste.rs` | The clipboard, then ⌘V once your modifier keys are released |
 | `src/settings.rs` | Preferences, saved to `~/Library/Application Support/Tamka/settings.json` |
@@ -233,6 +268,8 @@ cargo test --release                          # unit tests
 scripts/bundle.sh                             # build and sign dist/Tamka.app
 target/release/Tamka --transcribe clip.wav    # transcribe a file without the microphone
 open "tamka://settings-models"                # open Settings on a tab: settings, settings-models, settings-text
+open "tamka://files"                          # open Transcribe Files
+target/debug/Tamka --files a.m4a b.mov        # debug builds: open Transcribe Files with these files
 open "tamka://hud-demo"                       # show the indicator's states
 TAMKA_UPDATE_TEST=install dist/Tamka.app/Contents/MacOS/Tamka   # check now and install a newer release without asking
 swift scripts/make-showcase.swift             # redraw docs/images/showcase.png from the screenshots
