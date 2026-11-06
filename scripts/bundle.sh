@@ -2,7 +2,8 @@
 # Build Tamka.app (Rust menu-bar app + Swift speech engine helper) and sign it.
 #   scripts/bundle.sh             build + sign into dist/Tamka.app
 #   scripts/bundle.sh --install   also copy to /Applications and relaunch
-#   scripts/bundle.sh --notarize  also notarize and zip for release (keychain profile $NOTARY_PROFILE, default piedol-notary)
+#   scripts/bundle.sh --notarize  also notarize it, zip it for updates and make the disk image for new installs
+#                                 (keychain profile $NOTARY_PROFILE, default piedol-notary)
 set -euo pipefail
 cd "${0:A:h}/.."
 
@@ -68,6 +69,7 @@ if (( NOTARIZE )); then
   rm -f dist/Tamka-notarize.zip
   ditto -c -k --keepParent "$APP" dist/Tamka-macOS-arm64.zip
   echo "Notarized: dist/Tamka-macOS-arm64.zip"
+  scripts/make-dmg.sh "$APP" dist/Tamka-macOS-arm64.dmg "#ffb640" "$IDENTITY" --notarize "$PROFILE"
 fi
 
 if (( INSTALL )); then

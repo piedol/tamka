@@ -14,7 +14,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/piedol/tamka/releases/latest/download/Tamka-macOS-arm64.zip"><img src="assets/readme/download-mac.svg" height="56" alt="Download for Mac"></a>
+  <a href="https://github.com/piedol/tamka/releases/latest/download/Tamka-macOS-arm64.dmg"><img src="assets/readme/download-mac.svg" height="56" alt="Download for Mac"></a>
 </p>
 
 <p align="center">
@@ -183,7 +183,7 @@ Without the meeting recordings, the difference in accuracy is within the margin 
 
 ## Install
 
-Download [Tamka-macOS-arm64.zip](https://github.com/piedol/tamka/releases/latest/download/Tamka-macOS-arm64.zip) from the [latest release](https://github.com/piedol/tamka/releases/latest). It needs a Mac with Apple silicon and macOS 26 or later. (The Apple Speech engine uses SpeechAnalyzer, which is new in macOS 26.) Unzip it, drag **Tamka** into Applications and open it. Tamka is signed and notarized by Apple.
+Download [Tamka-macOS-arm64.dmg](https://github.com/piedol/tamka/releases/latest/download/Tamka-macOS-arm64.dmg) from the [latest release](https://github.com/piedol/tamka/releases/latest). It needs a Mac with Apple silicon and macOS 26 or later. (The Apple Speech engine uses SpeechAnalyzer, which is new in macOS 26.) Open it, drag **Tamka** onto the Applications folder in its window, and open Tamka from Applications. Tamka is signed and notarized by Apple.
 
 ### Build from source
 
@@ -232,7 +232,7 @@ Tamka has no Dock icon. To start it when you log in, turn on **Launch Tamka at l
 | The menu says no model is downloaded | Choose **Download a Speech Model…** in the menu. |
 | Transcribe Files says it can't open a file | Tamka reads files that macOS can play. Convert the file to M4A or MP3 and try again. |
 | Tamka can't use a model from Hugging Face | Tamka runs Core ML Parakeet models built like v2 or v3. Models in other formats, such as ONNX, or other designs, such as the 110M and Unified models, don't load. |
-| An update opens the release page instead of installing | Your account can't make changes in the folder Tamka is in. Download the zip from that page and drag **Tamka** into Applications. |
+| An update opens the release page instead of installing | Your account can't make changes in the folder Tamka is in. Download the disk image from that page and drag **Tamka** onto Applications. |
 | Something else goes wrong | Open the activity log from Settings › General. It shows events and timings, never your words. |
 
 ## Development
@@ -266,6 +266,7 @@ The menu bar app is written in Rust against AppKit through [objc2](https://githu
 ```bash
 cargo test --release                          # unit tests
 scripts/bundle.sh                             # build and sign dist/Tamka.app
+scripts/bundle.sh --notarize                  # release: notarize, zip for updates, make the .dmg for new installs
 target/release/Tamka --transcribe clip.wav    # transcribe a file without the microphone
 open "tamka://settings-models"                # open Settings on a tab: settings, settings-models, settings-text
 open "tamka://files"                          # open Transcribe Files
@@ -274,6 +275,8 @@ open "tamka://hud-demo"                       # show the indicator's states
 TAMKA_UPDATE_TEST=install dist/Tamka.app/Contents/MacOS/Tamka   # check now and install a newer release without asking
 swift scripts/make-showcase.swift             # redraw docs/images/showcase.png from the screenshots
 ```
+
+A release has `Tamka-macOS-arm64.zip`, which installed copies update from, and `Tamka-macOS-arm64.dmg`, which opens to a window with Tamka, an arrow and the Applications folder. The disk image needs [dmgbuild](https://github.com/dmgbuild/dmgbuild), installed once with `python3 -m venv ~/.local/share/dmgbuild-venv && ~/.local/share/dmgbuild-venv/bin/pip install dmgbuild`. `scripts/make-dmg.sh` and its two helper scripts are shared with piedol's other Mac apps and kept the same in each.
 
 ### Contributing
 
